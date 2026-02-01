@@ -65,26 +65,16 @@ pip install -r requirements.txt
   - curl http://localhost:8000/issues/YARN-123
   - curl http://localhost:8000/issues?limit=5
 
-9) Reflex 前端集成
-- 使用 Reflex Platform / Nix 构建与运行前端
-- 打开前端开发环境：进入 frontend/reflex，然后执行 nix-shell
-- 入口文件：frontend/reflex/Main.hs，这是前端 UI 的核心实现（当前为工作示例，可扩展为完整实现）
-- 构建/运行示例（基于 nix 构建环境）:
-  - 进入前端目录并进入 nix-shell：
-    cd frontend/reflex
-    nix-shell
-  - 编译为 JavaScript（在 nix-shell 中执行）：
-    ghcjs Main.hs -o Main.js
-  - 运行静态页面（需简单静态服务器）：
-    python -m http.server 8000 --directory frontend/reflex/static
-  - 访问： http://localhost:8000/
-- 构建与运行：在 nix-shell 环境中，使用 ghcjs 或其他工具编译并运行前端（具体构建命令将在后续补充）
-- API 对接：前端将对后端 /issues 与 /issues/{issueid} 发起请求，默认地址为后端同域名/端口
-- 结果展示：页面将展示单条 Issue 详情及最近 N 条 Issue 的摘要列表
-- 已添加一个前端骨架用于从后端 API 查询详细的 Issue 信息并显示在页面上，位于 frontend/reflex/Main.hs。
-- 该文件当前为起步骨架，演示如何通过 Reflex 与后端 API（/issues 和 /issues/{issueid}）对接。要在浏览器中显示，需要使用 Reflex-DOM 构建并编译为前端 JavaScript。
-- 运行前提：需要在本地安装 Reflex-Platform / GHCJS 相关工具链，具体构建步骤请参考 Reflex 官方文档。
-- 未来工作：将此骨架扩展为完整的交互式 UI（输入 IssueID、列出字段、实时刷新等），并将前端静态资源集成到项目中。
+9) PyWebIO 前端集成
+- 使用 PyWebIO 将前端与后端在同一域名/端口部署，提供简单的网页 UI 以加载单条 Issue 与最近的 Issue 列表。
+- 后端集成：通过 Flask 路由 /ui 提供 PyWebIO 界面，后端端点仍然是 /issues 与 /issues/{issueid}，前端通过 HTTP 调用进行数据获取。
+- 运行步骤：
+  1) 安装依赖并启动后端 Flask（api.py）: python api.py
+  2) 访问 PyWebIO 界面: http://localhost:8000/ui
+- 核心功能：
+- 输入 Issue ID 加载单条详情
+- 显示最近 N 条 Issue 的摘要，点击可查看详情
+- 说明：前端不需要打包静态 JS；PyWebIO 后端会在同域名/端口提供动态 UI，静态资源通过 Flask 路由提供。
 
 版本
 - 当前版本：1.0.0
