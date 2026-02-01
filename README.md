@@ -68,7 +68,16 @@ pip install -r requirements.txt
 9) PyWebIO 前端集成
 - 使用 PyWebIO 将前端与后端在同一域名/端口部署，提供简单的网页 UI 以加载单条 Issue 与最近的 Issue 列表。
 - 后端集成：通过 Flask 路由 /ui 提供 PyWebIO 界面，后端端点仍然是 /issues 与 /issues/{issueid}，前端通过 HTTP 调用进行数据获取。
-- 运行步骤：
+ - 运行步骤（Nix）：
+   - 进入前端 PyWebIO 目录：cd frontend/pywebio
+   - 进入开发环境：nix-shell
+   - 启动服务：python api.py
+   - 访问：http://localhost:8000/ui
+- 核心功能：
+  - 输入 Issue ID 加载单条详情
+  - 显示最近 N 条 Issue 的摘要，点击可查看详情
+- 说明：前端不需要打包静态 JS；PyWebIO 后端会在同域名/端口提供动态 UI，静态资源通过 Flask 路由提供。
+- 说明：你也可以直接在没有 nix 的环境中运行 python api.py，但推荐使用 nix-shell 以确保依赖版本一致。
   1) 安装依赖并启动后端 Flask（api.py）: python api.py
   2) 访问 PyWebIO 界面: http://localhost:8000/ui
 - 核心功能：
