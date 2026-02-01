@@ -1,61 +1,74 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Main where
 
--- This is a minimal Reflex-DOM frontend skeleton for displaying a single
--- Jira issue fetched from the REST API exposed by the backend.
--- It is intended as a starting point for integrating Reflex into this project.
+import Reflex.Dom
+import Data.Text (Text)
+import qualified Data.Text as T
+import GHC.Generics (Generic)
+import Data.Maybe (fromMaybe)
+import Data.Aeson (FromJSON, ToJSON)
 
-import           Reflex.Dom
-import           Data.Aeson (FromJSON, ToJSON, decode)
-import           GHC.Generics (Generic)
-import           qualified Data.Text as T
-import           qualified Data.ByteString.Lazy as BL
-import           Data.Maybe (fromMaybe)
-import           Control.Monad (void)
-import           Control.Monad.IO.Class (liftIO)
-import           Data.Text (Text)
-import           Network.HTTP.Client (HttpException)
-import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Network.HTTP.Client (newManager, httpLbs, parseRequest, Response, responseBody)
-
--- Define a minimal Issue type that mirrors the API response viewed by the backend.
+-- Lightweight models mirroring the backend response structure (partial, for UI)
 data Assignee = Assignee { name :: Maybe Text, email :: Maybe Text } deriving (Show, Generic)
 data Issue = Issue
-  { issueid      :: Maybe Text
-  , summary      :: Maybe Text
-  , description  :: Maybe Text
-  , status       :: Maybe Text
-  , assignee     :: Maybe Assignee
-  , created      :: Maybe Text
-  , updated      :: Maybe Text
-  , issuetype    :: Maybe Text
-  , labels       :: Maybe [Text]
-  , priority     :: Maybe Text
-  , resolution   :: Maybe Text
-  , fixVersions  :: Maybe [Text]
-  , created_at   :: Maybe Text
+  { issueid    :: Text
+  , summary    :: Text
+  , description:: Text
+  , status     :: Text
+  , assignee   :: Assignee
+  , created    :: Text
+  , updated    :: Text
+  , issuetype  :: Text
+  , labels     :: [Text]
+  , priority   :: Text
+  , resolution :: Text
+  , fixVersions:: [Text]
+  , created_at :: Text
   } deriving (Show, Generic)
 
+instance FromJSON Assignee
 instance FromJSON Issue
-instance ToJSON Issue
 
--- Simple helper to fetch an issue by ID from the backend API.
-fetchIssue :: String -> IO (Maybe Issue)
-fetchIssue issueid = do
-  manager <- newManager tlsManagerSettings
-  let url = "http://localhost:8000/issues/" ++ issueid
-  req <- parseRequest url
-  -- We ignore errors for brevity; a production app should handle retry logic.
-  res <- httpLbs req manager
-  let mIssue = decode (responseBody res) :: Maybe Issue
-  return mIssue
+-- A small mock issue to demonstrate the UI. Replace with real AJAX fetch later.
+mockIssue :: Issue
+mockIssue = Issue
+  { issueid = "YARN-1"
+  , summary = "Sample issue for Reflex frontend"
+  , description = "This is a sample issue used to demonstrate the Reflex front-end UI."
+  , status = "Done"
+  , assignee = Assignee (Just "Alice") (Just "alice@example.com")
+  , created = "2025-01-01T12:00:00Z"
+  , updated = "2025-01-02T12:00:00Z"
+  , issuetype = "Bug"
+  , labels = ["reflex", "frontend"]
+  , priority = "High"
+  , resolution = "Fixed"
+  , fixVersions = ["v1.0"]
+  , created_at = "2025-01-01T12:00:00Z"
+  }
 
 main :: IO ()
-main = do
-    -- This is a placeholder Reflex app wrapper. In a real setup you would
-    -- compile with reflex-dom and run in a browser.
-    putStrLn "Reflex frontend placeholder. This skeleton demonstrates how to hook up to the API." 
-    -- Example: fetch and print a sample issue (console only)
-    m <- fetchIssue "YARN-123"
-    print m
+main = mainWidget app
+
+app :: MonadWidget t m => m ()
+app = do
+  el "h1" $ text "Issue Viewer (Reflex Frontend)"
+  -- Simple static UI showing mock data; swap in real AJAX calls later
+  el "div" $ do
+    el "h2" $ text "Details (Mock)"
+    el "p" $ text $ T.concat ["ID: ", issueid mockIssue]
+    el "p" $ text $ T.concat ["Summary: ", summary mockIssue]
+    el "p" $ text $ T.concat ["Description: ", description mockIssue]
+    el "p" $ text $ T.concat ["Status: ", status mockIssue]
+    el "p" $ text $ T.concat ["Assignee: ", maybeText (name (assignee mockIssue)) , " <", maybeText (email (assignee mockIssue)), ">"]
+  el "div" $ do
+    el "h3" $ text "Recent Issues (Mock)"
+    ul <- el "ul" $ do
+      li $ text (issueid mockIssue)
+      li $ text (issueid mockIssue)
+  where
+    maybeText :: Maybe Text -> Text
+    maybeText (Just t) = t
+    maybeText Nothing  = ""

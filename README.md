@@ -66,6 +66,12 @@ pip install -r requirements.txt
   - curl http://localhost:8000/issues?limit=5
 
 9) Reflex 前端集成
+- 使用 Reflex Platform / Nix 构建与运行前端
+- 打开前端开发环境：进入 frontend/reflex，然后执行 nix-shell
+- 入口文件：frontend/reflex/Main.hs，这是前端 UI 的核心实现（当前为工作示例，后续可替换为完整实现）
+- 构建与运行：在 nix-shell 环境中，使用 ghcjs 或其他工具编译并运行前端（具体构建命令将在后续补充）
+- API 对接：前端将对后端 /issues 与 /issues/{issueid} 发起请求，默认地址为后端同域名/端口
+- 结果展示：页面将展示单条 Issue 详情及最近 N 条 Issue 的摘要列表
 - 已添加一个前端骨架用于从后端 API 查询详细的 Issue 信息并显示在页面上，位于 frontend/reflex/Main.hs。
 - 该文件当前为起步骨架，演示如何通过 Reflex 与后端 API（/issues 和 /issues/{issueid}）对接。要在浏览器中显示，需要使用 Reflex-DOM 构建并编译为前端 JavaScript。
 - 运行前提：需要在本地安装 Reflex-Platform / GHCJS 相关工具链，具体构建步骤请参考 Reflex 官方文档。
