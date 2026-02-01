@@ -2,7 +2,7 @@
 
 pkgs.mkShell {
   buildInputs = [
-    pkgs.haskellPackages.ghc
+    pkgs.haskellPackages.ghcjs
     pkgs.haskellPackages.reflex-dom
     pkgs.haskellPackages.reflex-dom-ajax
     pkgs.nodejs

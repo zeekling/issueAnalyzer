@@ -68,7 +68,16 @@ pip install -r requirements.txt
 9) Reflex 前端集成
 - 使用 Reflex Platform / Nix 构建与运行前端
 - 打开前端开发环境：进入 frontend/reflex，然后执行 nix-shell
-- 入口文件：frontend/reflex/Main.hs，这是前端 UI 的核心实现（当前为工作示例，后续可替换为完整实现）
+- 入口文件：frontend/reflex/Main.hs，这是前端 UI 的核心实现（当前为工作示例，可扩展为完整实现）
+- 构建/运行示例（基于 nix 构建环境）:
+  - 进入前端目录并进入 nix-shell：
+    cd frontend/reflex
+    nix-shell
+  - 编译为 JavaScript（在 nix-shell 中执行）：
+    ghcjs Main.hs -o Main.js
+  - 运行静态页面（需简单静态服务器）：
+    python -m http.server 8000 --directory frontend/reflex/static
+  - 访问： http://localhost:8000/
 - 构建与运行：在 nix-shell 环境中，使用 ghcjs 或其他工具编译并运行前端（具体构建命令将在后续补充）
 - API 对接：前端将对后端 /issues 与 /issues/{issueid} 发起请求，默认地址为后端同域名/端口
 - 结果展示：页面将展示单条 Issue 详情及最近 N 条 Issue 的摘要列表
