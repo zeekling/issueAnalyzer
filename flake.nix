@@ -17,6 +17,7 @@
             pkgs.python311Full
             pkgs.python311Packages.flask
             pkgs.python311Packages.pywebio
+            pkgs.gunicorn
           ];
           installPhase = ''
             mkdir -p $out/bin
@@ -29,6 +30,11 @@
             exec python3 "$SCRIPT_ROOT/api.py"
             EOS
             chmod +x $out/bin/issue-analyzer-server
+            cat > $out/bin/start-server <<'EOS'
+            #!/usr/bin/env bash
+            exec gunicorn api:app -w 4 -b 0.0.0.0:8000
+            EOS
+            chmod +x $out/bin/start-server
           '';
           meta = with pkgs.lib; {
             description = "Flask server for Issue Analyzer with PyWebIO frontend";
@@ -41,7 +47,7 @@
       apps = {
         server = {
           type = "app";
-          program = [ self.packages.server/bin/issue-analyzer-server ];
+          program = [ self.packages.server/bin/start-server ];
         };
       };
     });

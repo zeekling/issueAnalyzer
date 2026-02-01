@@ -130,6 +130,48 @@ def query_results(limit: int = 100) -> List[Dict[str, Any]]:
         })
     return results
 
+def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+    """Return paginated results: total and list of issues for the current page."""
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        # total count
+        cur.execute("SELECT COUNT(*) FROM issues")
+        total_row = cur.fetchone()
+        total = total_row[0] if total_row else 0
+        # fetch page
+        cur.execute(
+            """
+            SELECT
+                issueid, summary, description, status,
+                assignee_name, assignee_email, created, updated, issuetype,
+                labels, priority, resolution, fixVersions, created_at
+            FROM issues
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+            """,
+            (limit, offset),
+        )
+        rows = cur.fetchall()
+    issues = []
+    for r in rows:
+        issues.append({
+            "issueid": r[0],
+            "summary": r[1],
+            "description": r[2],
+            "status": r[3],
+            "assignee_name": r[4],
+            "assignee_email": r[5],
+            "created": r[6],
+            "updated": r[7],
+            "issuetype": r[8],
+            "labels": json.loads(r[9]),
+            "priority": r[10],
+            "resolution": r[11],
+            "fixVersions": json.loads(r[12]),
+            "created_at": r[13],
+        })
+    return {"total": total, "issues": issues}
+
 def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
     """Fetch a single issue by its issueid."""
     with sqlite3.connect(DB_PATH) as conn:

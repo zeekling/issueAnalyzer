@@ -6,7 +6,7 @@ Endpoints:
 - GET /issues          : list recent issues (read with limit param)
 """
 from flask import Flask, jsonify, request
-from db_writer import get_issue_by_id, query_results
+from db_writer import get_issue_by_id, query_results, query_results_paginated
 
 def create_app():
     app = Flask(__name__)
@@ -22,10 +22,12 @@ def create_app():
     def issues_list():
         try:
             limit = int(request.args.get('limit', 100))
+            offset = int(request.args.get('offset', 0))
         except ValueError:
             limit = 100
-        issues = query_results(limit=limit)
-        return jsonify(issues)
+            offset = 0
+        data = query_results_paginated(limit=limit, offset=offset)
+        return jsonify(data)
 
     # PyWebIO front-end integrated on the same Flask app
     try:
@@ -38,6 +40,7 @@ def create_app():
 
     return app
 
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     app.run(host='0.0.0.0', port=8000)

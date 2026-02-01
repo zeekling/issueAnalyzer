@@ -87,21 +87,3 @@ pip install -r requirements.txt
 
 版本
 - 当前版本：1.0.0
-
--10) 根 Flake 部署（最小服务器）
-- 构建：`nix build`
-- 运行：`nix run .#server` 或使用打包产物：`./result/bin/issue-analyzer-server`
-- 服务端口：8000，后端 API + 前端 UI 通过同一域名端口对接
-- API 端点：
-  - GET /issues/{issueid}
-  - GET /issues?limit=N
-- 数据库路径：默认为 data/result.db，运行时将会自动创建所需目录
-- 验证：访问 http://localhost:8000/ui 以访问 PyWebIO UI，或 curl 测试 API
-- 构建：`nix build`
-- 运行：`result/bin/issue-analyzer-server`
-- 服务端口：8000，后端 API + 前端 UI 通过同一域名端口对接
-- API 端点：
-  - GET /issues/{issueid}
-  - GET /issues?limit=N
-- 数据库路径：默认为 data/result.db，运行时将会自动创建所需目录
-- 验证：访问 http://localhost:8000/ui 以访问 PyWebIO UI，或 curl 测试 API
