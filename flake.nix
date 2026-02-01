@@ -38,5 +38,11 @@
       };
 
       defaultPackage = self.packages.server;
+      apps = {
+        server = {
+          type = "app";
+          program = [ self.packages.server/bin/issue-analyzer-server ];
+        };
+      };
     });
 }
