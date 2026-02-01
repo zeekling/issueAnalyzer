@@ -27,6 +27,15 @@ def create_app():
         issues = query_results(limit=limit)
         return jsonify(issues)
 
+    # PyWebIO front-end integrated on the same Flask app
+    try:
+        from frontend.pywebio_app import pywebio_ui
+        from pywebio.platform.flask import webio_view
+        app.add_url_rule('/ui', 'pywebio', webio_view(pywebio_ui), methods=['GET', 'POST', 'OPTIONS'])
+    except Exception:
+        # If PyWebIO dependencies are missing or import fails, skip integration gracefully
+        pass
+
     return app
 
 if __name__ == '__main__':
