@@ -12,7 +12,7 @@
         server = pkgs.stdenv.mkDerivation {
           pname = "issue-analyzer-server";
           version = "1.0.0";
-          src = null; # Use local directory when building from repo
+          src = "."; # use repo contents as source
           buildInputs = [
             pkgs.python311Full
             pkgs.python311Packages.flask
@@ -20,9 +20,13 @@
           ];
           installPhase = ''
             mkdir -p $out/bin
+            # Copy repo contents into output for runtime availability
+            cp -r ${src}/* $out/
             cat > $out/bin/issue-analyzer-server <<'EOS'
             #!/usr/bin/env bash
-            exec python3 api.py
+            SCRIPT_DIR=$(cd -- "$(dirname "$0")" && pwd)
+            SCRIPT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+            exec python3 "$SCRIPT_ROOT/api.py"
             EOS
             chmod +x $out/bin/issue-analyzer-server
           '';
