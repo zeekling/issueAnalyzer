@@ -1,2 +1,57 @@
-# issueAnalyzer
+# Issue Analyzer 使用说明
 
+本仓库包含一个 Jira 抓取脚本 jira_scraper.py，用于从 Apache Jira 的 YARN 项目抓取所有 Issue，用于后续分析。依赖与基本运行方式请参阅 requirements.txt 与本 README。
+
+依赖
+- 运行时依赖：Python 3、requests。请在 requirements.txt 中查看并使用虚拟环境安装。
+- 开发依赖：requirements-dev.txt（如有需要）.
+
+快速开始
+1) 创建并激活虚拟环境
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # macOS/Linux
+# Windows:
+.
+\\.venv\\Scripts\\activate
+```
+
+2) 安装依赖
+```bash
+pip install -U pip
+pip install -r requirements.txt
+```
+
+3) 运行 Jira 抓取脚本
+ - 以默认配置抓取 Yarn 项目的已解决 Issue（resolved），并输出 JSON 文件
+ ```bash
+ python jira_scraper.py --project YARN --output-json yarn_issues.json
+ ```
+ - 如需输出 CSV：
+ ```bash
+ python jira_scraper.py --project YARN --output-json yarn_issues.json --output-csv yarn_issues.csv
+ ```
+ - 需要认证时，传入用户名/令牌：
+ ```bash
+ python jira_scraper.py --project YARN --output-json yarn_issues.json --username YOUR_EMAIL --token YOUR_API_TOKEN
+ ```
+
+- 4) 输出说明
+- yarn_issues.json：包含标准化后的 Issue 条目列表（键、描述、摘要、状态、负责人、创建/更新时间、类型、标签、优先级、解决状态、修订版本等字段）。
+- yarn_issues.csv（若指定）：提供同样信息的 CSV 版本，便于分析工具导入。
+
+5) 高级用法
+- 自定义查询：使用 --jql 指定 Jira Query Language 字符串，覆盖默认的项目过滤条件。
+- 分页控制：--max-results 控制每次请求的数量，默认 1000；实际使用时可结合环境速率限制调整。
+- API 认证：若 Jira 需要鉴权，请通过 --username、--token 提供凭据。
+
+6) 维护与扩展
+- 若新增依赖，请同步更新 requirements.txt，必要时更新 poetry.lock 或 Pipfile.lock。
+- 如需要扩展输出字段，请修改 jira_scraper.py 的 fields 参数与 normalize_issue 的解析逻辑。
+
+7) 问题与支持
+- 如遇网络问题、认证失败或 API 限流，请检查网络连接、凭据有效性以及 Jira 实例的限制。
+- 如需帮助，请参阅 AGENTS.md 的相关通用规范，或联系项目维护者。
+
+版本
+- 当前版本：1.0.0
