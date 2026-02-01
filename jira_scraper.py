@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import logging
 import argparse
 import time
 import json
@@ -6,9 +7,11 @@ from typing import List, Dict, Any
 import requests
 from db_writer import init_db, store_result
 
-DEFAULT_JIRA_BASE = "https://issues.apache.org/jira"
+DEFAULT_JIRA_BASE: str = "https://issues.apache.org/jira"
+logger = logging.getLogger(__name__)
 
 def fetch_issues(jql: str, max_results: int = 1000, start_at: int = 0, auth: Any = None) -> Dict[str, Any]:
+    """Fetch Jira issues using JQL and return raw data."""
     url = f"{DEFAULT_JIRA_BASE.rstrip('/')}/rest/api/2/search"
     params = {
         "jql": jql,
@@ -16,10 +19,23 @@ def fetch_issues(jql: str, max_results: int = 1000, start_at: int = 0, auth: Any
         "maxResults": max_results,
         "fields": "key,summary,description,status,assignee,created,updated,issuetype,labels,priority,resolution,fixVersions",
     }
-    resp = requests.get(url, params=params, auth=auth, timeout=60)
-    resp.raise_for_status()
-    data = resp.json()
-    return {"total": int(data.get("total", 0)), "issues": data.get("issues", [])}
+    try:
+        resp = requests.get(url, params=params, auth=auth, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        total = int(data.get("total", 0))
+        issues = data.get("issues", [])
+        logger.info("Fetched batch: %d issues (start_at=%d, max_results=%d) total=%d for JQL=%s", len(issues), start_at, max_results, total, jql)
+        if issues:
+            keys_preview = [iss.get("key") for iss in issues[:5]]
+            preview = ", ".join(k for k in keys_preview if k)
+            if len(issues) > 5:
+                preview += ", ..."
+            logger.debug("Batch issue keys: %s", preview)
+        return {"total": total, "issues": issues}
+    except Exception as e:
+        logger.exception("Failed to fetch issues for JQL '%s' (start_at=%d, max_results=%d): %s", jql, start_at, max_results, e)
+        raise
 
 def _extract_description_text(desc: Any) -> str:
     if isinstance(desc, str):
@@ -34,6 +50,7 @@ def _extract_description_text(desc: Any) -> str:
     return str(desc)
 
 def normalize_issue(issue: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a Jira issue dict into a stable, serializable form."""
     key = issue.get("key")
     fields = issue.get("fields", {})
     summary = fields.get("summary")
@@ -74,6 +91,8 @@ def main():
     parser.add_argument("--token", default=None, help="Jira API token for basic auth (optional)")
     args = parser.parse_args()
 
+    # Initialize logging
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     init_db()
     jql = args.jql if args.jql else f"project = {args.project} AND resolution IS NOT EMPTY"
     auth = (args.username, args.token) if args.username and args.token else None
@@ -87,13 +106,20 @@ def main():
         issues = resp["issues"] if isinstance(resp, dict) else []
         all_raw.extend(issues)
         start_at += len(issues)
+        logger.info("Fetched batch: %d issues; total=%d; next_start_at=%d", len(issues), total, start_at)
         if not issues:
             break
         time.sleep(0.25)
 
     normalized = [normalize_issue(it) for it in all_raw]
-    for it in normalized:
-        store_result(str(it.get("key")), it)
+    logger.info("Total issues fetched and normalized: %d", len(normalized))
+    total_to_store = len(normalized)
+    for idx, it in enumerate(normalized, start=1):
+        key = it.get("key")
+        logger.info("Storing issue: %s (%d/%d)", key, idx, total_to_store)
+        store_result(str(key), it)
+        if idx % 50 == 0:
+            logger.info("Stored %d/%d issues so far", idx, total_to_store)
 
 if __name__ == "__main__":
     main()

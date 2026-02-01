@@ -25,15 +25,11 @@ pip install -r requirements.txt
 3) 运行 Jira 抓取脚本
  - 以默认配置抓取 Yarn 项目的已解决 Issue（resolved），并输出 JSON 文件
  ```bash
- python jira_scraper.py --project YARN --output-json yarn_issues.json
- ```
- - 如需输出 CSV：
- ```bash
- python jira_scraper.py --project YARN --output-json yarn_issues.json --output-csv yarn_issues.csv
+ python jira_scraper.py --project YARN
  ```
  - 需要认证时，传入用户名/令牌：
  ```bash
- python jira_scraper.py --project YARN --output-json yarn_issues.json --username YOUR_EMAIL --token YOUR_API_TOKEN
+ python jira_scraper.py --project YARN --username YOUR_EMAIL --token YOUR_API_TOKEN
  ```
 
 - 4) 输出说明
