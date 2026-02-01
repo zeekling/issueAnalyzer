@@ -79,7 +79,7 @@ def store_result(input_id: str, data: Any) -> None:
         fixVersions_json = json.dumps(fixVersions, ensure_ascii=False)
         c.execute(
             """
-            INSERT INTO issues (
+            INSERT OR REPLACE INTO issues (
                 issueid, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
                 labels, priority, resolution, fixVersions

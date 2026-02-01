@@ -3,12 +3,31 @@ import logging
 import argparse
 import time
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import requests
 from db_writer import init_db, store_result
 
 DEFAULT_JIRA_BASE: str = "https://issues.apache.org/jira"
 logger = logging.getLogger(__name__)
+
+# Utilities for time-bounded JQL
+def _date_literal(value: str) -> str:
+    v = value.strip()
+    if (v.startswith("'") and v.endswith("'")) or (v.startswith('"') and v.endswith('"')):
+        return v
+    # Use double quotes for Jira JQL literals
+    return f'"{v}"'
+
+def _build_time_jql(base_jql: str, field: str, start_date: Optional[str], end_date: Optional[str]) -> Optional[str]:
+    if not start_date and not end_date:
+        return None
+    parts: List[str] = []
+    if start_date:
+        parts.append(f'{field} >= {_date_literal(start_date)}')
+    if end_date:
+        parts.append(f'{field} <= {_date_literal(end_date)}')
+    clause = " AND ".join(parts)
+    return f"{base_jql} AND {clause}"
 
 def fetch_issues(jql: str, max_results: int = 1000, start_at: int = 0, auth: Any = None) -> Dict[str, Any]:
     """Fetch Jira issues using JQL and return raw data."""
@@ -86,6 +105,9 @@ def main():
     parser = argparse.ArgumentParser(description="Fetch Jira issues for a given project from Apache Jira.")
     parser.add_argument("--project", default="YARN", help="Jira project key")
     parser.add_argument("--jql", default=None, help="Custom JQL, overrides --project if provided")
+    parser.add_argument("--start-date", default="2020-01-01", help="Start date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
+    parser.add_argument("--end-date", default=None, help="End date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
+    parser.add_argument("--date-field", default="created", help="Date field to filter on (e.g., created, updated)")
     parser.add_argument("--max-results", type=int, default=1000, help="Pagination size per request")
     parser.add_argument("--username", default=None, help="Jira username for basic auth (optional)")
     parser.add_argument("--token", default=None, help="Jira API token for basic auth (optional)")
@@ -94,8 +116,14 @@ def main():
     # Initialize logging
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     init_db()
-    jql = args.jql if args.jql else f"project = {args.project} AND resolution IS NOT EMPTY"
+    base_jql = args.jql if args.jql else f"project = {args.project} AND resolution IS NOT EMPTY"
+    # Build time-bounded JQL if dates provided
+    if args.start_date or args.end_date:
+        jql = _build_time_jql(base_jql, args.date_field or "created", args.start_date, args.end_date) or base_jql
+    else:
+        jql = base_jql
     auth = (args.username, args.token) if args.username and args.token else None
+    logger.info("Using JQL: %s", jql)
 
     all_raw: List[Dict[str, Any]] = []
     start_at = 0

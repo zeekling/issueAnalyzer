@@ -40,6 +40,11 @@ pip install -r requirements.txt
 - 自定义查询：使用 --jql 指定 Jira Query Language 字符串，覆盖默认的项目过滤条件。
 - 分页控制：--max-results 控制每次请求的数量，默认 1000；实际使用时可结合环境速率限制调整。
 - API 认证：若 Jira 需要鉴权，请通过 --username、--token 提供凭据。
+ - 时间范围抓取：使用 --start-date、--end-date、--date-field 选项来限定抓取的时间区间。若提供时间参数，将被追加到 JQL 中，请确保字段名与 Jira 的时间字段匹配。
+ - 示例：
+  1) python jira_scraper.py --project YARN --start-date 2025-01-01 --end-date 2025-01-31
+  2) python jira_scraper.py --project YARN --start-date 2025-01-01 --end-date 2025-01-31 --date-field updated
+  3) python jira_scraper.py --jql "project = YARN AND issuetype = Bug" --start-date 2024-12-01 --end-date 2024-12-31
 
 6) 维护与扩展
 - 若新增依赖，请同步更新 requirements.txt，必要时更新 poetry.lock 或 Pipfile.lock。
