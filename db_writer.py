@@ -130,6 +130,40 @@ def query_results(limit: int = 100) -> List[Dict[str, Any]]:
         })
     return results
 
+def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
+    """Fetch a single issue by its issueid."""
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT
+                issueid, summary, description, status,
+                assignee_name, assignee_email, created, updated, issuetype,
+                labels, priority, resolution, fixVersions, created_at
+            FROM issues
+            WHERE issueid = ?
+            """,
+            (issueid,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return None
+    return {
+        "issueid": row[0],
+        "summary": row[1],
+        "description": row[2],
+        "status": row[3],
+        "assignee": {"name": row[4], "email": row[5]},
+        "created": row[6],
+        "updated": row[7],
+        "issuetype": row[8],
+        "labels": json.loads(row[9]),
+        "priority": row[10],
+        "resolution": row[11],
+        "fixVersions": json.loads(row[12]),
+        "created_at": row[13],
+    }
+
 if __name__ == "__main__":
     init_db()
     store_result("demo", {"example": True})

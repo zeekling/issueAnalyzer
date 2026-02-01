@@ -54,5 +54,22 @@ pip install -r requirements.txt
 - 如遇网络问题、认证失败或 API 限流，请检查网络连接、凭据有效性以及 Jira 实例的限制。
 - 如需帮助，请参阅 AGENTS.md 的相关通用规范，或联系项目维护者。
 
+8) API 服务
+- 提供 REST API 来查询详细的 Issue 信息
+- 运行：python api.py
+- 端点：
+  - GET /issues/<issueid> 返回单条 Issue 的详细信息
+  - GET /issues?limit=N 返回最近的 N 条 Issue 的摘要信息
+- 数据源：从 result.db 的新表读取字段 issueid、summary、description、status、assignee、created、updated、issuetype、labels、priority、resolution、fixVersions、created_at
+- 使用示例：
+  - curl http://localhost:8000/issues/YARN-123
+  - curl http://localhost:8000/issues?limit=5
+
+9) Reflex 前端集成
+- 已添加一个前端骨架用于从后端 API 查询详细的 Issue 信息并显示在页面上，位于 frontend/reflex/Main.hs。
+- 该文件当前为起步骨架，演示如何通过 Reflex 与后端 API（/issues 和 /issues/{issueid}）对接。要在浏览器中显示，需要使用 Reflex-DOM 构建并编译为前端 JavaScript。
+- 运行前提：需要在本地安装 Reflex-Platform / GHCJS 相关工具链，具体构建步骤请参考 Reflex 官方文档。
+- 未来工作：将此骨架扩展为完整的交互式 UI（输入 IssueID、列出字段、实时刷新等），并将前端静态资源集成到项目中。
+
 版本
 - 当前版本：1.0.0
