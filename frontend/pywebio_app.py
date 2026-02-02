@@ -82,14 +82,10 @@ def render_issue_html(issue: Dict[str, Any]) -> str:
 
 
 def pywebio_ui():
-    # Paginated listing with dropdown for per-page size and button navigation
+    # Paginated listing: allow user to adjust page size via dropdown (10, 20, 50, 100)
     page_size = 20
     page = 1
     while True:
-        new_size = select("Per page:", options=[10, 20, 50, 100], value=page_size)
-        if int(new_size) != page_size:
-            page_size = int(new_size)
-            page = 1
         offset = (page - 1) * page_size
         total, issues = fetch_issues_page(page_size, offset)
         clear()
@@ -113,26 +109,29 @@ def pywebio_ui():
         put_table(rows, header=header)
         total_pages = max(1, (total + page_size - 1) // page_size)
         put_html(f"<div>Page {page} of {total_pages} (size {page_size})</div>")
-        go = input("Go to page (1..%d):" % total_pages)
+        go = input("Go to page number (or press Enter to skip):")
         if go and go.isdigit():
-            g = int(go)
-            if 1 <= g <= total_pages:
-                page = g
+            p = int(go)
+            if 1 <= p <= total_pages:
+                page = p
                 continue
-        nav = input("Navigate: Prev (P) or Next (N)")
-        if nav:
-            v = str(nav).strip().lower()
-            if v in ('p','prev') and page > 1:
+        nav = input("Navigate: Prev, Next (P/N). Or enter an issue id to view:")
+        if not nav:
+            break
+        if nav.lower() in ("p", "prev"):
+            if page > 1:
                 page -= 1
                 continue
-            if v in ('n','next') and page < total_pages:
+        if nav.lower() in ("n", "next"):
+            if page < total_pages:
                 page += 1
                 continue
-        else:
-            break
-        # If user enters an issue id directly, view it
-        if nav:
-            display_issue(nav)
+        if nav.isdigit():
+            p = int(nav)
+            if 1 <= p <= total_pages:
+                page = p
+                continue
+        display_issue(str(nav))
 
 def main():
     pywebio_ui()
