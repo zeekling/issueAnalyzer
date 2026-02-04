@@ -11,6 +11,13 @@ import requests
 
 from pywebio.input import input, select
 from pywebio.output import put_html, put_table, put_text, clear, put_buttons
+import re
+from datetime import datetime
+PAGINATION_CSS = """
+<style>
+.container { max-width: 2000px; min-width: 900px; }
+</style>
+"""
 
 
 def fetch_issue(iid: str) -> Optional[Dict[str, Any]]:
@@ -84,9 +91,51 @@ def render_issue_html(issue: Dict[str, Any]) -> str:
 def _nav_onclick(btn_label):
     return btn_label
 
+def mark_issue(iid: str):
+    # Simple marker action for a given issue id
+    put_text(f"Issue {iid} marked.")
+
+def _format_date(val: Any) -> str:
+    if val is None:
+        return ""
+    # numeric timestamp (s or ms)
+    if isinstance(val, (int, float)):
+        ts = float(val)
+        if ts > 1e12:
+            ts /= 1000.0
+        try:
+            dt = datetime.fromtimestamp(ts)
+            return dt.date().strftime("%Y-%m-%d")
+        except Exception:
+            return ""
+    # string representations
+    if isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return ""
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', s):
+            return s
+        tmp = s
+        if tmp.endswith("Z"):
+            tmp = tmp[:-1] + "+00:00"
+        try:
+            dt = datetime.fromisoformat(tmp)
+            return dt.date().strftime("%Y-%m-%d")
+        except Exception:
+            pass
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M", "%Y-%m-%d"):
+            try:
+                dt = datetime.strptime(s, fmt)
+                return dt.date().strftime("%Y-%m-%d")
+            except Exception:
+                pass
+        # fallback to first 10 chars if possible
+        return s[:10] if len(s) >= 10 else s
+    return ""
+
 def pywebio_ui():
     # Paginated listing with dropdown-based page navigation
-    page_size = 10
+    page_size = 20
     page = 1
     while True:
         offset = (page - 1) * page_size
@@ -96,7 +145,7 @@ def pywebio_ui():
         if not issues:
             put_text("No issues found or API unreachable.")
             break
-        header = ["issueid", "summary", "status", "issuetype", "fixVersions", "labels", "resolution", "created", "updated"]
+        header = ["issueid", "summary", "status", "issuetype", "fixVersions", "labels", "resolution", "created", "updated", "Operate"]
         rows = []
         for it in issues:
             iid = it.get("issueid", "")
@@ -110,9 +159,11 @@ def pywebio_ui():
             labelsVal = it.get("labels", [])
             labels = ", ".join(labelsVal) if isinstance(labelsVal, list) else str(labelsVal)
             resolution = it.get("resolution", "")
-            created = it.get("created", "")
-            updated = it.get("updated", "")
-            rows.append([iid, summary, status, issuetype, fixVersions, labels, resolution, created, updated])
+            created = _format_date(it.get("created", ""))
+            updated = _format_date(it.get("updated", ""))
+            
+            rows.append([iid, summary, status, issuetype, fixVersions, labels, resolution, created, updated, put_buttons(['Mark'], onclick=lambda value, iid=iid: mark_issue(iid))])
+        put_html(PAGINATION_CSS)
         put_table(rows, header=header)
         total_pages = max(1, (total + page_size - 1) // page_size)
         put_html(f"<div>Page {page} of {total_pages} (size {page_size})</div>")
