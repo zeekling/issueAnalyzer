@@ -9,9 +9,8 @@ It renders a paginated table of issues and allows viewing details of a single is
 from typing import List, Dict, Any, Optional, Tuple
 import requests
 
-from pywebio.platform.flask import webio_view
-from pywebio.input import input
-from pywebio.output import put_text, put_html, put_table, put_buttons, clear
+from pywebio.input import input, select
+from pywebio.output import put_html, put_table, put_text, clear, put_buttons
 
 
 def fetch_issue(iid: str) -> Optional[Dict[str, Any]]:
@@ -82,10 +81,17 @@ def render_issue_html(issue: Dict[str, Any]) -> str:
     return html
 
 
+def _nav_onclick(btn_label):
+    return btn_label
+
 def pywebio_ui():
-    page_size = 20
+    # Paginated listing with dropdown for per-page size and button navigation
+    page_size = 10
     page = 1
+    prePage=0
     while True:
+        if prePage == page :
+            continue
         offset = (page - 1) * page_size
         total, issues = fetch_issues_page(page_size, offset)
         clear()
@@ -101,38 +107,16 @@ def pywebio_ui():
             status = it.get("status", "")
             assignee = it.get("assignee", {}) or {}
             name = assignee.get("name") if isinstance(assignee, dict) else None
-            email = assignee.get("email") if isinstance(assignee, dict) else None
+            mail = assignee.get("email") if isinstance(assignee, dict) else None
             created = it.get("created")
             updated = it.get("updated")
-            assignee_str = f"{name} <{email}>" if name or email else ""
+            assignee_str = f"{name} <{mail}>" if name or mail else ""
             rows.append([iid, summary, status, assignee_str, created, updated])
         put_table(rows, header=header)
         total_pages = max(1, (total + page_size - 1) // page_size)
         put_html(f"<div>Page {page} of {total_pages} (size {page_size})</div>")
 
-        go = input("Go to page number (or press Enter to skip):")
-        if go and go.isdigit():
-            p = int(go)
-            if 1 <= p <= total_pages:
-                page = p
-                continue
-        nav = input("Navigate: Prev, Next (P/N). Or enter an issue id to view:")
-        if not nav:
-            break
-        if nav.lower() in ("p", "prev"):
-            if page > 1:
-                page -= 1
-                continue
-        if nav.lower() in ("n", "next"):
-            if page < total_pages:
-                page += 1
-                continue
-        if nav.isdigit():
-            p = int(nav)
-            if 1 <= p <= total_pages:
-                page = p
-                continue
-        display_issue(str(nav))
+        # s = select("Page select ")
 
 def main():
     pywebio_ui()
