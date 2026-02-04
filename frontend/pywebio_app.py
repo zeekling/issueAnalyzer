@@ -96,19 +96,23 @@ def pywebio_ui():
         if not issues:
             put_text("No issues found or API unreachable.")
             break
-        header = ["issueid", "summary", "status", "assignee", "created", "updated"]
+        header = ["issueid", "summary", "status", "issuetype", "fixVersions", "labels", "resolution", "created", "updated"]
         rows = []
         for it in issues:
             iid = it.get("issueid", "")
             summary = it.get("summary", "")
             status = it.get("status", "")
-            assignee = it.get("assignee", {}) or {}
-            name = assignee.get("name") if isinstance(assignee, dict) else None
-            mail = assignee.get("email") if isinstance(assignee, dict) else None
-            created = it.get("created")
-            updated = it.get("updated")
-            assignee_str = f"{name} <{mail}>" if name or mail else ""
-            rows.append([iid, summary, status, assignee_str, created, updated])
+            issuetype = it.get("issuetype", "")
+            if not isinstance(issuetype, str):
+                issuetype = str(issuetype)
+            fixVersionsVal = it.get("fixVersions", [])
+            fixVersions = ", ".join(fixVersionsVal) if isinstance(fixVersionsVal, list) else str(fixVersionsVal)
+            labelsVal = it.get("labels", [])
+            labels = ", ".join(labelsVal) if isinstance(labelsVal, list) else str(labelsVal)
+            resolution = it.get("resolution", "")
+            created = it.get("created", "")
+            updated = it.get("updated", "")
+            rows.append([iid, summary, status, issuetype, fixVersions, labels, resolution, created, updated])
         put_table(rows, header=header)
         total_pages = max(1, (total + page_size - 1) // page_size)
         put_html(f"<div>Page {page} of {total_pages} (size {page_size})</div>")
