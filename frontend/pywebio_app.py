@@ -85,13 +85,10 @@ def _nav_onclick(btn_label):
     return btn_label
 
 def pywebio_ui():
-    # Paginated listing with dropdown for per-page size and button navigation
+    # Paginated listing with dropdown-based page navigation
     page_size = 10
     page = 1
-    prePage=0
     while True:
-        if prePage == page :
-            continue
         offset = (page - 1) * page_size
         total, issues = fetch_issues_page(page_size, offset)
         clear()
@@ -116,7 +113,16 @@ def pywebio_ui():
         total_pages = max(1, (total + page_size - 1) // page_size)
         put_html(f"<div>Page {page} of {total_pages} (size {page_size})</div>")
 
-        # s = select("Page select ")
-
+        # Dropdown-based navigation
+        page_options = [f"Page {i}" for i in range(1, total_pages + 1)]
+        chosen = select("Go to page", options=page_options, default=f"Page {page}")
+        if not chosen:
+            break
+        if chosen.startswith("Page "):
+            new_page = int(chosen.split()[1])
+            if 1 <= new_page <= total_pages:
+                page = new_page
+                continue
+        break
 def main():
     pywebio_ui()
