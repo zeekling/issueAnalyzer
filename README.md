@@ -1,89 +1,80 @@
 # Issue Analyzer 使用说明
 
-本仓库包含一个 Jira 抓取脚本 jira_scraper.py，用于从 Apache Jira 的 YARN 项目抓取所有 Issue，用于后续分析。依赖与基本运行方式请参阅 requirements.txt 与本 README。
+本仓库提供从 Apache Jira 的 YARN 项目抓取、存储、查询和浏览 Jira issues 的工具链。核心组件包括：
+- jira_scraper.py：从 Jira 抓取 Issue，并写入本地 SQLite 数据库
+- db_writer.py：SQLite 存储与查询引擎
+- api.py：REST API，提供问题详情和分页查询
+- frontend/pywebio_app.py：PyWebIO 前端 UI，提供分页浏览与详情查看
 
-依赖
-- 运行时依赖：Python 3、requests。请在 requirements.txt 中查看并使用虚拟环境安装。
-- 开发依赖：requirements-dev.txt（如有需要）.
+数据存储与端点
+- 数据库位置：data/result.db
+- 表：issues，字段包含
+  - issueid, project_name, summary, description, status
+  - assignee_name, assignee_email, created, updated
+  - issuetype, labels, priority, resolution, fixVersions
+  - created_at
 
 快速开始
-1) 创建并激活虚拟环境
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # macOS/Linux
-# Windows:
-.
-\\.venv\\Scripts\\activate
-```
+- 依赖
+  - Python 3.x
+  - requests
+  - 其他依赖见 requirements.txt
+- 环境与安装
+  1) 创建并激活虚拟环境
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate  # macOS/Linux
+  # Windows:
+  .\\venv\\Scripts\\activate
+  ```
+- 安装依赖
+  ```bash
+  pip install -U pip
+  pip install -r requirements.txt
+  ```
+- 运行 Jira 抓取脚本
+  ```bash
+  python jira_scraper.py --project YARN
+  ```
+- 运行 API 服务
+  ```bash
+  python api.py
+  ```
+- 运行 PyWebIO UI
+  打开浏览器访问 http://localhost:8000/ui
 
-2) 安装依赖
-```bash
-pip install -U pip
-pip install -r requirements.txt
-```
+功能与特性
+- 增量写入：Jira 抓取改为增量写入数据库，若记录已存在则更新
+- 新增字段 project_name：记录 Issue 所属的 Jira 项目名称
+- API 支持分页与按字段筛选：/issues?limit=&offset=&field=&value=
+- PyWebIO UI：分页浏览并显示当前筛选状态，查看单条 Issue 不阻塞筛选
 
-3) 运行 Jira 抓取脚本
- - 以默认配置抓取 Yarn 项目的已解决 Issue（resolved），并输出 JSON 文件
- ```bash
- python jira_scraper.py --project YARN
- ```
- - 需要认证时，传入用户名/令牌：
- ```bash
- python jira_scraper.py --project YARN --username YOUR_EMAIL --token YOUR_API_TOKEN
- ```
+数据模型与 API 端点
+- 数据模型：issues(issueid, project_name, summary, description, status, assignee_name, assignee_email, created, updated, issuetype, labels, priority, resolution, fixVersions, created_at)
+- API 端点
+  - GET /issues?limit=N&offset=M
+  - GET /issues/{issueid}
+  - GET /issues?field=X&value=Y（可选，带筛选）
 
-- 4) 输出说明
-- yarn_issues.json：包含标准化后的 Issue 条目列表（键、描述、摘要、状态、负责人、创建/更新时间、类型、标签、优先级、解决状态、修订版本等字段）。
-- yarn_issues.csv（若指定）：提供同样信息的 CSV 版本，便于分析工具导入。
+前端 UI 使用
+- 路由 /ui 提供 PyWebIO 界面，后端端点仍然是 /issues 与 /issues/{issueid}
+- UI 通过接口获取数据，显示分页列表与单条详情
 
-5) 高级用法
-- 自定义查询：使用 --jql 指定 Jira Query Language 字符串，覆盖默认的项目过滤条件。
-- 分页控制：--max-results 控制每次请求的数量，默认 1000；实际使用时可结合环境速率限制调整。
-- API 认证：若 Jira 需要鉴权，请通过 --username、--token 提供凭据。
- - 时间范围抓取：使用 --start-date、--end-date、--date-field 选项来限定抓取的时间区间。若提供时间参数，将被追加到 JQL 中，请确保字段名与 Jira 的时间字段匹配。
- - 示例：
-  1) python jira_scraper.py --project YARN --start-date 2025-01-01 --end-date 2025-01-31
-  2) python jira_scraper.py --project YARN --start-date 2025-01-01 --end-date 2025-01-31 --date-field updated
-  3) python jira_scraper.py --jql "project = YARN AND issuetype = Bug" --start-date 2024-12-01 --end-date 2024-12-31
+维护与扩展
+- 如需新增依赖，请同步更新 requirements.txt
+- 如需扩展输出字段，请修改 jira_scraper.py 的字段定义与 normalize_issue 的解析逻辑
+- 若要增强筛选，扩展 query_results_paginated_filtered，并更新前端
 
-6) 维护与扩展
-- 若新增依赖，请同步更新 requirements.txt，必要时更新 poetry.lock 或 Pipfile.lock。
-- 如需要扩展输出字段，请修改 jira_scraper.py 的 fields 参数与 normalize_issue 的解析逻辑。
+故障排查
+- 网络问题、鉴权失败或 API 限流等
+- 检查凭据、网络连通性以及 Jira 实例配置
 
-7) 问题与支持
-- 如遇网络问题、认证失败或 API 限流，请检查网络连接、凭据有效性以及 Jira 实例的限制。
-- 如需帮助，请参阅 AGENTS.md 的相关通用规范，或联系项目维护者。
+版本历史
+- 1.0.0：初始版本，包含 Jira 抓取、数据库、API、以及前端 UI
+- 1.1.0：新增 project_name 字段、增量写入、筛选 API、UI 显示筛选状态
 
-8) API 服务
-- 提供 REST API 来查询详细的 Issue 信息
-- 运行：python api.py
-- 端点：
-  - GET /issues/<issueid> 返回单条 Issue 的详细信息
-  - GET /issues?limit=N 返回最近的 N 条 Issue 的摘要信息
-- 数据源：从 result.db 的新表读取字段 issueid、summary、description、status、assignee、created、updated、issuetype、labels、priority、resolution、fixVersions、created_at
-- 使用示例：
-  - curl http://localhost:8000/issues/YARN-123
-  - curl http://localhost:8000/issues?limit=5
+许可证
+- 许可证信息请参阅 LICENSE 文件，若无请联系维护者
 
-9) PyWebIO 前端集成
-- 使用 PyWebIO 将前端与后端在同一域名/端口部署，提供简单的网页 UI 以加载单条 Issue 与最近的 Issue 列表。
-- 后端集成：通过 Flask 路由 /ui 提供 PyWebIO 界面，后端端点仍然是 /issues 与 /issues/{issueid}，前端通过 HTTP 调用进行数据获取。
- - 运行步骤（Nix）：
-   - 进入前端 PyWebIO 目录：cd frontend/pywebio
-   - 进入开发环境：nix-shell
-   - 启动服务：python api.py
-   - 访问：http://localhost:8000/ui
-- 核心功能：
-  - 输入 Issue ID 加载单条详情
-  - 显示最近 N 条 Issue 的摘要，点击可查看详情
-- 说明：前端不需要打包静态 JS；PyWebIO 后端会在同域名/端口提供动态 UI，静态资源通过 Flask 路由提供。
-- 说明：你也可以直接在没有 nix 的环境中运行 python api.py，但推荐使用 nix-shell 以确保依赖版本一致。
-  1) 安装依赖并启动后端 Flask（api.py）: python api.py
-  2) 访问 PyWebIO 界面: http://localhost:8000/ui
-- 核心功能：
-- 输入 Issue ID 加载单条详情
-- 显示最近 N 条 Issue 的摘要，点击可查看详情
-- 说明：前端不需要打包静态 JS；PyWebIO 后端会在同域名/端口提供动态 UI，静态资源通过 Flask 路由提供。
-
-版本
-- 当前版本：1.0.0
+关注与贡献
+- 欢迎提交 PR，请遵循团队的贡献规范
