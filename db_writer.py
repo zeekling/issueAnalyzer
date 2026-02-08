@@ -18,7 +18,7 @@ def init_db(db_path: Optional[str] = None) -> None:
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute("DROP TABLE IF EXISTS issues")
+        # Do not drop existing data; create table if it does not exist.
         c.execute(
             """
             CREATE TABLE IF NOT EXISTS issues (
