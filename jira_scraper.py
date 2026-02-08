@@ -105,7 +105,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fetch Jira issues for a given project from Apache Jira.")
     parser.add_argument("--project", default="YARN", help="Jira project key")
     parser.add_argument("--jql", default=None, help="Custom JQL, overrides --project if provided")
-    parser.add_argument("--start-date", default="2020-01-01", help="Start date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
+    parser.add_argument("--start-date", default="2017-01-01", help="Start date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
     parser.add_argument("--end-date", default=None, help="End date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
     parser.add_argument("--date-field", default="created", help="Date field to filter on (e.g., created, updated)")
     parser.add_argument("--max-results", type=int, default=1000, help="Pagination size per request")
@@ -125,29 +125,26 @@ def main():
     auth = (args.username, args.token) if args.username and args.token else None
     logger.info("Using JQL: %s", jql)
 
-    all_raw: List[Dict[str, Any]] = []
     start_at = 0
     total = None
+    total_to_store = 0
     while total is None or start_at < total:
         resp = fetch_issues(jql, max_results=args.max_results, start_at=start_at, auth=auth)
         total = resp["total"] if isinstance(resp, dict) else None
         issues = resp["issues"] if isinstance(resp, dict) else []
-        all_raw.extend(issues)
-        start_at += len(issues)
-        logger.info("Fetched batch: %d issues; total=%d; next_start_at=%d", len(issues), total, start_at)
         if not issues:
             break
+        # Process issues incrementally: normalize and upsert into DB
+        normalized_batch = [normalize_issue(it) for it in issues]
+        for it in normalized_batch:
+            key = it.get("key")
+            logger.info("Storing issue: %s", key)
+            store_result(str(key), it)
+            total_to_store += 1
+        if total_to_store and total_to_store % 50 == 0:
+            logger.info("Stored %d issues so far", total_to_store)
+        start_at += len(issues)
         time.sleep(0.25)
-
-    normalized = [normalize_issue(it) for it in all_raw]
-    logger.info("Total issues fetched and normalized: %d", len(normalized))
-    total_to_store = len(normalized)
-    for idx, it in enumerate(normalized, start=1):
-        key = it.get("key")
-        logger.info("Storing issue: %s (%d/%d)", key, idx, total_to_store)
-        store_result(str(key), it)
-        if idx % 50 == 0:
-            logger.info("Stored %d/%d issues so far", idx, total_to_store)
 
 if __name__ == "__main__":
     main()
