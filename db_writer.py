@@ -18,11 +18,12 @@ def init_db(db_path: Optional[str] = None) -> None:
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        # Do not drop existing data; create table if it does not exist.
+        # Create table with project_name column if it does not exist
         c.execute(
             """
             CREATE TABLE IF NOT EXISTS issues (
                 issueid TEXT PRIMARY KEY,
+                project_name TEXT,
                 summary TEXT,
                 description TEXT,
                 status TEXT,
@@ -47,6 +48,7 @@ def store_result(input_id: str, data: Any) -> None:
         c = conn.cursor()
         # Derive fields from normalized issue dict
         issueid = None
+        project_name = None
         summary = None
         description = None
         status = None
@@ -68,6 +70,7 @@ def store_result(input_id: str, data: Any) -> None:
             if isinstance(assignee, dict):
                 assignee_name = assignee.get("name")
                 assignee_email = assignee.get("email")
+            project_name = data.get("project_name")
             created = data.get("created")
             updated = data.get("updated")
             issuetype = data.get("issuetype")
@@ -80,13 +83,13 @@ def store_result(input_id: str, data: Any) -> None:
         c.execute(
             """
             INSERT OR REPLACE INTO issues (
-                issueid, summary, description, status,
+                issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
                 labels, priority, resolution, fixVersions
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                issueid, summary, description, status,
+                issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
                 labels_json, priority, resolution, fixVersions_json
             ),
@@ -100,7 +103,7 @@ def query_results(limit: int = 100) -> List[Dict[str, Any]]:
         cur.execute(
             """
             SELECT
-                issueid, summary, description, status,
+                issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
                 labels, priority, resolution, fixVersions, created_at
             FROM issues
@@ -114,19 +117,20 @@ def query_results(limit: int = 100) -> List[Dict[str, Any]]:
     for r in rows:
         results.append({
             "issueid": r[0],
-            "summary": r[1],
-            "description": r[2],
-            "status": r[3],
-            "assignee_name": r[4],
-            "assignee_email": r[5],
-            "created": r[6],
-            "updated": r[7],
-            "issuetype": r[8],
-            "labels": json.loads(r[9]),
-            "priority": r[10],
-            "resolution": r[11],
-            "fixVersions": json.loads(r[12]),
-            "created_at": r[13],
+            "project_name": r[1],
+            "summary": r[2],
+            "description": r[3],
+            "status": r[4],
+            "assignee_name": r[5],
+            "assignee_email": r[6],
+            "created": r[7],
+            "updated": r[8],
+            "issuetype": r[9],
+            "labels": json.loads(r[10]),
+            "priority": r[11],
+            "resolution": r[12],
+            "fixVersions": json.loads(r[13]),
+            "created_at": r[14],
         })
     return results
 
@@ -142,7 +146,7 @@ def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]
         cur.execute(
             """
             SELECT
-                issueid, summary, description, status,
+                issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
                 labels, priority, resolution, fixVersions, created_at
             FROM issues
@@ -156,19 +160,20 @@ def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]
     for r in rows:
         issues.append({
             "issueid": r[0],
-            "summary": r[1],
-            "description": r[2],
-            "status": r[3],
-            "assignee_name": r[4],
-            "assignee_email": r[5],
-            "created": r[6],
-            "updated": r[7],
-            "issuetype": r[8],
-            "labels": json.loads(r[9]),
-            "priority": r[10],
-            "resolution": r[11],
-            "fixVersions": json.loads(r[12]),
-            "created_at": r[13],
+            "project_name": r[1],
+            "summary": r[2],
+            "description": r[3],
+            "status": r[4],
+            "assignee_name": r[5],
+            "assignee_email": r[6],
+            "created": r[7],
+            "updated": r[8],
+            "issuetype": r[9],
+            "labels": json.loads(r[10]),
+            "priority": r[11],
+            "resolution": r[12],
+            "fixVersions": json.loads(r[13]),
+            "created_at": r[14],
         })
     return {"total": total, "issues": issues}
 
@@ -261,7 +266,7 @@ def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
         cur.execute(
             """
             SELECT
-                issueid, summary, description, status,
+                issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
                 labels, priority, resolution, fixVersions, created_at
             FROM issues
@@ -274,18 +279,19 @@ def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
         return None
     return {
         "issueid": row[0],
-        "summary": row[1],
-        "description": row[2],
-        "status": row[3],
-        "assignee": {"name": row[4], "email": row[5]},
-        "created": row[6],
-        "updated": row[7],
-        "issuetype": row[8],
-        "labels": json.loads(row[9]),
-        "priority": row[10],
-        "resolution": row[11],
-        "fixVersions": json.loads(row[12]),
-        "created_at": row[13],
+        "project_name": row[1],
+        "summary": row[2],
+        "description": row[3],
+        "status": row[4],
+        "assignee": {"name": row[5], "email": row[6]},
+        "created": row[7],
+        "updated": row[8],
+        "issuetype": row[9],
+        "labels": json.loads(row[10]),
+        "priority": row[11],
+        "resolution": row[12],
+        "fixVersions": json.loads(row[13]),
+        "created_at": row[14],
     }
 
 if __name__ == "__main__":
