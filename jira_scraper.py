@@ -36,7 +36,7 @@ def fetch_issues(jql: str, max_results: int = 1000, start_at: int = 0, auth: Any
         "jql": jql,
         "startAt": start_at,
         "maxResults": max_results,
-        "fields": "key,summary,description,status,assignee,created,updated,issuetype,labels,priority,resolution,fixVersions",
+        "fields": "key,summary,description,status,assignee,created,updated,issuetype,labels,priority,resolution,fixVersions,project",
     }
     try:
         resp = requests.get(url, params=params, auth=auth, timeout=60)
@@ -85,11 +85,14 @@ def normalize_issue(issue: Dict[str, Any]) -> Dict[str, Any]:
     resolution = fields.get("resolution", {}).get("name") if isinstance(fields.get("resolution"), dict) else None
     fixVersions = [fv.get("name") for fv in fields.get("fixVersions", []) if isinstance(fv, dict) and fv.get("name")]
     description_desc = fields.get("description")
+    project_info = fields.get("project") if isinstance(fields.get("project"), dict) else {}
+    project_name = project_info.get("name") if isinstance(project_info, dict) else None
     description = _extract_description_text(description_desc)
     return {
         "key": key,
         "summary": summary,
         "description": description,
+        "project_name": project_name,
         "status": status,
         "assignee": {"name": assignee_name, "email": assignee_email},
         "created": created,
