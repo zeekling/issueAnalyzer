@@ -30,9 +30,14 @@ def fetch_issue(iid: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def fetch_issues_page(limit: int, offset: int) -> Tuple[int, List[Dict[str, Any]]]:
+def fetch_issues_page(limit: int, offset: int, field: Optional[str] = None, value: Optional[str] = None) -> Tuple[int, List[Dict[str, Any]]]:
     try:
-        resp = requests.get("http://localhost:8000/issues", params={"limit": limit, "offset": offset}, timeout=5)
+        params = {"limit": limit, "offset": offset}
+        if field:
+            params["field"] = field
+        if value:
+            params["value"] = value
+        resp = requests.get("http://localhost:8000/issues", params=params, timeout=5)
         if resp.ok:
             data = resp.json()
             total = int(data.get("total", len(data.get("issues", []))))
@@ -134,14 +139,25 @@ def _format_date(val: Any) -> str:
     return ""
 
 def pywebio_ui():
-    # Paginated listing with dropdown-based page navigation
+    # Paginated listing with dropdown-based page navigation and field-based search
     page_size = 20
     page = 1
+    # Persist search state across iterations
+    search_field = "summary"
+    search_value = ""
+    field_options = [
+        "issueid", "summary", "description", "status", "assignee_name",
+        "issuetype", "labels", "priority", "resolution", "created", "updated",
+    ]
     while True:
-        offset = (page - 1) * page_size
-        total, issues = fetch_issues_page(page_size, offset)
+        # Read current search criteria from user inputs
         clear()
-        put_html("<h1>Issue Browser (PyWebIO) - All Issues (Paged)</h1>")
+        put_html("<h1>Issue Browser (PyWebIO) - All Issues (Paged) with Filter</h1>")
+        search_field = select("按字段查找字段", options=field_options, value=search_field)
+        search_value = input("查找值 (留空显示全部)", value=search_value)
+
+        offset = (page - 1) * page_size
+        total, issues = fetch_issues_page(page_size, offset, search_field, search_value)
         if not issues:
             put_text("No issues found or API unreachable.")
             break
@@ -161,7 +177,6 @@ def pywebio_ui():
             resolution = it.get("resolution", "")
             created = _format_date(it.get("created", ""))
             updated = _format_date(it.get("updated", ""))
-            
             rows.append([iid, summary, status, issuetype, fixVersions, labels, resolution, created, updated, put_buttons(['Mark'], onclick=lambda value, iid=iid: mark_issue(iid))])
         put_html(PAGINATION_CSS)
         put_table(rows, header=header)

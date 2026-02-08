@@ -172,6 +172,88 @@ def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]
         })
     return {"total": total, "issues": issues}
 
+def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: Optional[str] = None, value: Optional[str] = None) -> Dict[str, Any]:
+    """Return paginated results with simple field-based filtering.
+
+    Supports filtering by a subset of fields using LIKE semantics.
+    For labels/fixVersions stored as JSON arrays, performs a contains-style match.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        total = 0
+        issues: List[Dict[str, Any]] = []
+        if field:
+            # Map user-provided field to DB column
+            field_map = {
+                'issueid': 'issueid',
+                'summary': 'summary',
+                'description': 'description',
+                'status': 'status',
+                'assignee': 'assignee_name',
+                'assignee_name': 'assignee_name',
+                'issuetype': 'issuetype',
+                'labels': 'labels',
+                'priority': 'priority',
+                'resolution': 'resolution',
+                'fixVersions': 'fixVersions',
+                'created': 'created',
+                'updated': 'updated',
+            }
+            column = field_map.get(field)
+            if column:
+                # Build LIKE pattern
+                if column in ('labels', 'fixVersions'):
+                    pattern = f'%"{value}"%'
+                else:
+                    pattern = f'%{value}%' if value is not None else ''
+                if value is None:
+                    # No value to filter on; fall back to unfiltered paging
+                    column = None
+                else:
+                    # Count total with filter
+                    cur.execute(
+                        f"SELECT COUNT(*) FROM issues WHERE {column} LIKE ?",
+                        (pattern,),
+                    )
+                    total_row = cur.fetchone()
+                    total = total_row[0] if total_row else 0
+                    # Fetch page with filter
+                    sql = f"""
+                    SELECT
+                        issueid, summary, description, status,
+                        assignee_name, assignee_email, created, updated, issuetype,
+                        labels, priority, resolution, fixVersions, created_at
+                    FROM issues
+                    WHERE {column} LIKE ?
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?
+                    """
+                    cur.execute(sql, (pattern, limit, offset))
+                    rows = cur.fetchall()
+                    for r in rows:
+                        issues.append({
+                            'issueid': r[0],
+                            'summary': r[1],
+                            'description': r[2],
+                            'status': r[3],
+                            'assignee': {'name': r[4], 'email': r[5]},
+                            'created': r[6],
+                            'updated': r[7],
+                            'issuetype': r[8],
+                            'labels': json.loads(r[9]),
+                            'priority': r[10],
+                            'resolution': r[11],
+                            'fixVersions': json.loads(r[12]),
+                            'created_at': r[13],
+                        })
+        # If there was no valid filter, fallback to unfiltered paging
+        if not field or not issues:
+            # Fall back to unfiltered paging
+            return query_results_paginated(limit=limit, offset=offset)
+        # Build total value already computed above; ensure non-negative
+        total = total if isinstance(total, int) else 0
+        return {"total": total, "issues": issues}
+
 def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
     """Fetch a single issue by its issueid."""
     with sqlite3.connect(DB_PATH) as conn:
