@@ -191,6 +191,7 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
             # Map user-provided field to DB column
             field_map = {
                 'issueid': 'issueid',
+                'project_name': 'project_name',
                 'summary': 'summary',
                 'description': 'description',
                 'status': 'status',
@@ -225,7 +226,7 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
                     # Fetch page with filter
                     sql = f"""
                     SELECT
-                        issueid, summary, description, status,
+                        issueid, project_name, summary, description, status,
                         assignee_name, assignee_email, created, updated, issuetype,
                         labels, priority, resolution, fixVersions, created_at
                     FROM issues
@@ -238,18 +239,19 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
                     for r in rows:
                         issues.append({
                             'issueid': r[0],
-                            'summary': r[1],
-                            'description': r[2],
-                            'status': r[3],
-                            'assignee': {'name': r[4], 'email': r[5]},
-                            'created': r[6],
-                            'updated': r[7],
-                            'issuetype': r[8],
-                            'labels': json.loads(r[9]),
-                            'priority': r[10],
-                            'resolution': r[11],
-                            'fixVersions': json.loads(r[12]),
-                            'created_at': r[13],
+                            'project_name': r[1],
+                            'summary': r[2],
+                            'description': r[3],
+                            'status': r[4],
+                            'assignee': {'name': r[5], 'email': r[6]},
+                            'created': r[7],
+                            'updated': r[8],
+                            'issuetype': r[9],
+                            'labels': json.loads(r[10]),
+                            'priority': r[11],
+                            'resolution': r[12],
+                            'fixVersions': json.loads(r[13]),
+                            'created_at': r[14],
                         })
         # If there was no valid filter, fallback to unfiltered paging
         if not field or not issues:
