@@ -32,6 +32,27 @@ def fetch_issue(iid: str) -> Optional[Dict[str, Any]]:
         return None
     return None
 
+def mark_issue_important(iid: str, is_important: bool) -> bool:
+    """Mark issue as important or not important."""
+    try:
+        data = {'is_important': is_important}
+        resp = requests.post(f"http://localhost:8000/issues/{iid}/important", json=data, timeout=5)
+        if resp.ok:
+            return True
+    except Exception:
+        pass
+    return False
+
+def clear_issue_important(iid: str) -> bool:
+    """Clear important mark from issue."""
+    try:
+        resp = requests.delete(f"http://localhost:8000/issues/{iid}/important", timeout=5)
+        if resp.ok:
+            return True
+    except Exception:
+        pass
+    return False
+
 
 def fetch_issues_page(limit: int, offset: int, field: Optional[str] = None, value: Optional[str] = None) -> Tuple[int, List[Dict[str, Any]]]:
     try:
@@ -102,8 +123,11 @@ def _nav_onclick(btn_label):
     return btn_label
 
 def mark_issue(iid: str):
-    # Simple marker action for a given issue id
-    put_text(f"Issue {iid} marked.")
+    # Mark issue as important
+    if mark_issue_important(iid, True):
+        put_text(f"Issue {iid} marked as important.")
+    else:
+        put_text(f"Failed to mark issue {iid} as important.")
 
 def _format_date(val: Any) -> str:
     if val is None:
@@ -194,7 +218,8 @@ def pywebio_ui():
             resolution = it.get("resolution", "")
             created = _format_date(it.get("created", ""))
             updated = _format_date(it.get("updated", ""))
-            rows.append([iid, project_name, summary, status, issuetype, fixVersions, labels, resolution, created, updated, put_buttons(['Mark ', 'View'], onclick=lambda value, iid=iid: (mark_issue(iid) if value == 'Mark' else display_issue(iid)))])
+            is_important = it.get("is_important", False)
+            rows.append([iid, project_name, summary, status, issuetype, fixVersions, labels, resolution, created, updated, put_buttons(['Mark ', 'View', 'Important' if not is_important else 'Clear'], onclick=lambda value, iid=iid: (mark_issue(iid) if value == 'Mark' else display_issue(iid) if value == 'View' else (clear_issue_important(iid) if value == 'Clear' else mark_issue_important(iid, True))))])
         put_html(PAGINATION_CSS)
         put_table(rows, header=header)
         total_pages = max(1, (total + page_size - 1) // page_size)
@@ -210,7 +235,7 @@ def pywebio_ui():
                     break
         search = input_group("Search ", [
             input("Go to page", name="page", type="number", value=page),
-            select("search field", options=field_options, value=search_field, name="search_field"),
+            select("Search field", options=field_options, value=search_field, name="search_field"),
             input("Search value", name="search_value", value=select_value)
             ]);
         new_page_str=search["page"]

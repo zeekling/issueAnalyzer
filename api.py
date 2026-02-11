@@ -6,7 +6,7 @@ Endpoints:
 - GET /issues          : list recent issues (read with limit param)
 """
 from flask import Flask, jsonify, request
-from db_writer import get_issue_by_id, query_results, query_results_paginated, query_results_paginated_filtered
+from db_writer import get_issue_by_id, query_results, query_results_paginated, query_results_paginated_filtered, set_issue_important
 
 def create_app():
     app = Flask(__name__)
@@ -34,6 +34,23 @@ def create_app():
         else:
             data = query_results_paginated(limit=limit, offset=offset)
         return jsonify(data)
+
+    @app.route('/issues/<issueid>/important', methods=['POST'])
+    def mark_issue_important(issueid):
+        """Mark an issue as important."""
+        is_important = request.json.get('is_important', True)
+        success = set_issue_important(issueid, is_important)
+        if success:
+            return jsonify({'success': True, 'message': f'Issue {issueid} marked as {"important" if is_important else "not important"}'})
+        return jsonify({'success': False, 'message': f'Failed to update issue {issueid}'}), 500
+
+    @app.route('/issues/<issueid>/important', methods=['DELETE'])
+    def clear_issue_important(issueid):
+        """Clear the important mark from an issue."""
+        success = set_issue_important(issueid, False)
+        if success:
+            return jsonify({'success': True, 'message': f'Important mark cleared from issue {issueid}'})
+        return jsonify({'success': False, 'message': f'Failed to clear important mark for issue {issueid}'}), 500
 
     # PyWebIO front-end integrated on the same Flask app
     try:

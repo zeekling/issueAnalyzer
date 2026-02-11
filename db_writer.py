@@ -36,6 +36,7 @@ def init_db(db_path: Optional[str] = None) -> None:
                 priority TEXT,
                 resolution TEXT,
                 fixVersions TEXT,
+                is_important INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
@@ -130,7 +131,8 @@ def query_results(limit: int = 100) -> List[Dict[str, Any]]:
             "priority": r[11],
             "resolution": r[12],
             "fixVersions": json.loads(r[13]),
-            "created_at": r[14],
+            "is_important": r[14] == 1,
+            "created_at": r[15],
         })
     return results
 
@@ -173,7 +175,8 @@ def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]
             "priority": r[11],
             "resolution": r[12],
             "fixVersions": json.loads(r[13]),
-            "created_at": r[14],
+            "is_important": r[14] == 1,
+            "created_at": r[15],
         })
     return {"total": total, "issues": issues}
 
@@ -251,7 +254,8 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
                             'priority': r[11],
                             'resolution': r[12],
                             'fixVersions': json.loads(r[13]),
-                            'created_at': r[14],
+                            'is_important': r[14] == 1,
+                            'created_at': r[15],
                         })
         # If there was no valid filter, fallback to unfiltered paging
         if not field or not issues:
@@ -270,7 +274,7 @@ def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
             SELECT
                 issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
-                labels, priority, resolution, fixVersions, created_at
+                labels, priority, resolution, fixVersions, is_important, created_at
             FROM issues
             WHERE issueid = ?
             """,
@@ -293,8 +297,22 @@ def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
         "priority": row[11],
         "resolution": row[12],
         "fixVersions": json.loads(row[13]),
-        "created_at": row[14],
+        "is_important": row[14] == 1,
+        "created_at": row[15],
     }
+
+def set_issue_important(issueid: str, is_important: bool) -> bool:
+    """Set or clear the important status of an issue."""
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE issues SET is_important = ? WHERE issueid = ?
+            """,
+            (1 if is_important else 0, issueid),
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
 if __name__ == "__main__":
     init_db()
