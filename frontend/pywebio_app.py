@@ -32,11 +32,11 @@ def fetch_issue(iid: str) -> Optional[Dict[str, Any]]:
         return None
     return None
 
-def mark_issue_important(iid: str, is_important: bool) -> bool:
-    """Mark issue as important or not important."""
+def mark_issue_important(iid: str, markdetail: str) -> bool:
+    """Mark issue with markdetail."""
     try:
-        data = {'is_important': is_important}
-        resp = requests.post(f"http://localhost:8000/issues/{iid}/important", json=data, timeout=5)
+        data = {'markdetail': markdetail}
+        resp = requests.post(f"http://localhost:8000/issues/{iid}/markdetail", json=data, timeout=5)
         if resp.ok:
             return True
     except Exception:
@@ -44,9 +44,9 @@ def mark_issue_important(iid: str, is_important: bool) -> bool:
     return False
 
 def clear_issue_important(iid: str) -> bool:
-    """Clear important mark from issue."""
+    """Clear markdetail from issue."""
     try:
-        resp = requests.delete(f"http://localhost:8000/issues/{iid}/important", timeout=5)
+        resp = requests.post(f"http://localhost:8000/issues/{iid}/markdetail", json={'markdetail': ''}, timeout=5)
         if resp.ok:
             return True
     except Exception:
@@ -97,7 +97,6 @@ def render_issue_html(issue: Dict[str, Any]) -> str:
     priority = issue.get("priority", "")
     resolution = issue.get("resolution", "")
     fixVersions = ", ".join(issue.get("fixVersions", [])) if isinstance(issue.get("fixVersions", []), list) else ""
-    created_at = issue.get("created_at", "")
 
     html = f"""
     <h2>Issue {issueid}: {summary}</h2>
@@ -113,7 +112,6 @@ def render_issue_html(issue: Dict[str, Any]) -> str:
       <tr><td>Priority</td><td>{priority}</td></tr>
       <tr><td>Resolution</td><td>{resolution}</td></tr>
       <tr><td>Fix Versions</td><td>{fixVersions}</td></tr>
-      <tr><td>Created At</td><td>{created_at}</td></tr>
     </table>
     """
     return html
@@ -123,8 +121,8 @@ def _nav_onclick(btn_label):
     return btn_label
 
 def mark_issue(iid: str):
-    # Mark issue as important
-    if mark_issue_important(iid, True):
+    # Mark issue with markdetail
+    if mark_issue_important(iid, "Important"):
         put_text(f"Issue {iid} marked as important.")
     else:
         put_text(f"Failed to mark issue {iid} as important.")
@@ -218,8 +216,8 @@ def pywebio_ui():
             resolution = it.get("resolution", "")
             created = _format_date(it.get("created", ""))
             updated = _format_date(it.get("updated", ""))
-            is_important = it.get("is_important", False)
-            rows.append([iid, project_name, summary, status, issuetype, fixVersions, labels, resolution, created, updated, put_buttons(['Mark ', 'View', 'Important' if not is_important else 'Clear'], onclick=lambda value, iid=iid: (mark_issue(iid) if value == 'Mark' else display_issue(iid) if value == 'View' else (clear_issue_important(iid) if value == 'Clear' else mark_issue_important(iid, True))))])
+            markdetail = it.get("markdetail", "")
+            rows.append([iid, project_name, summary, status, issuetype, fixVersions, labels, resolution, created, updated, put_buttons(['Mark Important' if not markdetail else 'Clear'], onclick=lambda value, iid=iid: clear_issue_important(iid) if value == 'Clear' else mark_issue_important(iid, "Important"))])
         put_html(PAGINATION_CSS)
         put_table(rows, header=header)
         total_pages = max(1, (total + page_size - 1) // page_size)
