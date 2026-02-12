@@ -36,7 +36,7 @@ def init_db(db_path: Optional[str] = None) -> None:
                 priority TEXT,
                 resolution TEXT,
                 fixVersions TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                markdetail TEXT DEFAULT ''
             )
             """
         )
@@ -74,10 +74,10 @@ def store_result(input_id: str, data: Any) -> None:
             created = data.get("created")
             updated = data.get("updated")
             issuetype = data.get("issuetype")
-            labels = data.get("labels") or []
-            priority = data.get("priority")
-            resolution = data.get("resolution")
-            fixVersions = data.get("fixVersions") or []
+        labels = data.get("labels") or []
+        priority = data.get("priority")
+        resolution = data.get("resolution")
+        fixVersions = data.get("fixVersions") or []
         labels_json = json.dumps(labels, ensure_ascii=False)
         fixVersions_json = json.dumps(fixVersions, ensure_ascii=False)
         c.execute(
@@ -85,13 +85,13 @@ def store_result(input_id: str, data: Any) -> None:
             INSERT OR REPLACE INTO issues (
                 issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
-                labels, priority, resolution, fixVersions
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                labels, priority, resolution, fixVersions, markdetail
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
-                labels_json, priority, resolution, fixVersions_json
+                labels_json, priority, resolution, fixVersions_json, ''
             ),
         )
         conn.commit()
@@ -105,15 +105,15 @@ def query_results(limit: int = 100) -> List[Dict[str, Any]]:
             SELECT
                 issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
-                labels, priority, resolution, fixVersions, created_at
+                labels, priority, resolution, fixVersions, markdetail
             FROM issues
-            ORDER BY created_at DESC
+            ORDER BY created DESC
             LIMIT ?
             """,
             (limit,),
         )
         rows = cur.fetchall()
-    results = []
+        results = []
     for r in rows:
         results.append({
             "issueid": r[0],
@@ -130,7 +130,7 @@ def query_results(limit: int = 100) -> List[Dict[str, Any]]:
             "priority": r[11],
             "resolution": r[12],
             "fixVersions": json.loads(r[13]),
-            "created_at": r[14],
+            "markdetail": r[14],
         })
     return results
 
@@ -148,9 +148,9 @@ def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]
             SELECT
                 issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
-                labels, priority, resolution, fixVersions, created_at
+                labels, priority, resolution, fixVersions, markdetail
             FROM issues
-            ORDER BY created_at DESC
+            ORDER BY created DESC
             LIMIT ? OFFSET ?
             """,
             (limit, offset),
@@ -173,7 +173,7 @@ def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]
             "priority": r[11],
             "resolution": r[12],
             "fixVersions": json.loads(r[13]),
-            "created_at": r[14],
+            "markdetail": r[14],
         })
     return {"total": total, "issues": issues}
 
@@ -191,6 +191,7 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
             # Map user-provided field to DB column
             field_map = {
                 'issueid': 'issueid',
+                'project_name': 'project_name',
                 'summary': 'summary',
                 'description': 'description',
                 'status': 'status',
@@ -225,32 +226,33 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
                     # Fetch page with filter
                     sql = f"""
                     SELECT
-                        issueid, summary, description, status,
+                        issueid, project_name, summary, description, status,
                         assignee_name, assignee_email, created, updated, issuetype,
-                        labels, priority, resolution, fixVersions, created_at
+                        labels, priority, resolution, fixVersions, markdetail
                     FROM issues
                     WHERE {column} LIKE ?
-                    ORDER BY created_at DESC
+                    ORDER BY created DESC
                     LIMIT ? OFFSET ?
                     """
                     cur.execute(sql, (pattern, limit, offset))
                     rows = cur.fetchall()
                     for r in rows:
                         issues.append({
-                            'issueid': r[0],
-                            'summary': r[1],
-                            'description': r[2],
-                            'status': r[3],
-                            'assignee': {'name': r[4], 'email': r[5]},
-                            'created': r[6],
-                            'updated': r[7],
-                            'issuetype': r[8],
-                            'labels': json.loads(r[9]),
-                            'priority': r[10],
-                            'resolution': r[11],
-                            'fixVersions': json.loads(r[12]),
-                            'created_at': r[13],
-                        })
+                                'issueid': r[0],
+                                'project_name': r[1],
+                                'summary': r[2],
+                                'description': r[3],
+                                'status': r[4],
+                                'assignee': {'name': r[5], 'email': r[6]},
+                                'created': r[7],
+                                'updated': r[8],
+                                'issuetype': r[9],
+                                'labels': json.loads(r[10]),
+                                'priority': r[11],
+                                'resolution': r[12],
+                                'fixVersions': json.loads(r[13]),
+                                'markdetail': r[14],
+                            })
         # If there was no valid filter, fallback to unfiltered paging
         if not field or not issues:
             # Fall back to unfiltered paging
@@ -263,18 +265,18 @@ def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
     """Fetch a single issue by its issueid."""
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT
-                issueid, project_name, summary, description, status,
-                assignee_name, assignee_email, created, updated, issuetype,
-                labels, priority, resolution, fixVersions, created_at
-            FROM issues
-            WHERE issueid = ?
-            """,
-            (issueid,),
-        )
-        row = cur.fetchone()
+    cur.execute(
+        """
+        SELECT
+            issueid, project_name, summary, description, status,
+            assignee_name, assignee_email, created, updated, issuetype,
+            labels, priority, resolution, fixVersions, markdetail
+        FROM issues
+        WHERE issueid = ?
+        """,
+        (issueid,),
+    )
+    row = cur.fetchone()
     if not row:
         return None
     return {
@@ -291,8 +293,21 @@ def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
         "priority": row[11],
         "resolution": row[12],
         "fixVersions": json.loads(row[13]),
-        "created_at": row[14],
+        "markdetail": row[14],
     }
+
+def update_issue_markdetail_field(issueid: str, markdetail: str) -> bool:
+    """Update the markdetail field for an issue."""
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE issues SET markdetail = ? WHERE issueid = ?
+            """,
+            (markdetail, issueid),
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
 if __name__ == "__main__":
     init_db()

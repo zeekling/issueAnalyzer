@@ -12,7 +12,6 @@
   - issueid, project_name, summary, description, status
   - assignee_name, assignee_email, created, updated
   - issuetype, labels, priority, resolution, fixVersions
-  - created_at
 
 快速开始
 - 依赖
@@ -50,7 +49,7 @@
 - PyWebIO UI：分页浏览并显示当前筛选状态，查看单条 Issue 不阻塞筛选
 
 数据模型与 API 端点
-- 数据模型：issues(issueid, project_name, summary, description, status, assignee_name, assignee_email, created, updated, issuetype, labels, priority, resolution, fixVersions, created_at)
+- 数据模型：issues(issueid, project_name, summary, description, status, assignee_name, assignee_email, created, updated, issuetype, labels, priority, resolution, fixVersions)
 - API 端点
   - GET /issues?limit=N&offset=M
   - GET /issues/{issueid}
