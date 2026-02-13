@@ -138,7 +138,7 @@ def main():
         if not issues:
             break
         # Filter out issues with unwanted resolutions
-        excluded_resolutions = {"Won't Fix", "Duplicate"}
+        excluded_resolutions = {"Won't Fix", "Duplicate", "Not A Problem"}
         filtered_count = 0
         normalized_issues = []
         for it in issues:
@@ -154,7 +154,7 @@ def main():
         normalized_batch = normalized_issues
         for it in normalized_batch:
             key = it.get("key")
-            logger.info("Storing issue: %s", key)
+            logger.debug("Storing issue: %s", key)
             store_result(str(key), it)
             total_to_store += 1
         if total_to_store and total_to_store % 50 == 0:
