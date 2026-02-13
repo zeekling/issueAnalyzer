@@ -100,7 +100,7 @@ def render_issue_html(issue: Dict[str, Any]) -> str:
 
     html = f"""
     <h2>Issue {issueid}: {summary}</h2>
-    <p>{description}</p>
+    <p><b>Description:</b><br>{description or 'No description provided'}</p>
     <table border=1 cellpadding=4>
       <tr><td>Project</td><td>{project_name or ''}</td></tr>
       <tr><td>Status</td><td>{status}</td></tr>
