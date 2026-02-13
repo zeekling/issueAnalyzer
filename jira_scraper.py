@@ -105,8 +105,8 @@ def normalize_issue(issue: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch Jira issues for a given project from Apache Jira.")
-    parser.add_argument("--project", default="YARN", help="Jira project key")
+    parser = argparse.ArgumentParser(description="Fetch Jira issues from Apache Jira.")
+    parser.add_argument("--project", nargs="+", default=["HDFS", "YARN", "HADOOP", "MAPREDUCE", "ZOOKEEPER"], help="Jira project keys (comma-separated or multiple values)")
     parser.add_argument("--jql", default=None, help="Custom JQL, overrides --project if provided")
     parser.add_argument("--start-date", default="2017-01-01", help="Start date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
     parser.add_argument("--end-date", default=None, help="End date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
@@ -119,7 +119,7 @@ def main():
     # Initialize logging
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     init_db()
-    base_jql = args.jql if args.jql else f"project = {args.project} AND resolution IS NOT EMPTY"
+    base_jql = args.jql if args.jql else f"project IN ({', '.join(args.project)}) AND resolution IS NOT EMPTY"
     # Build time-bounded JQL if dates provided
     if args.start_date or args.end_date:
         jql = _build_time_jql(base_jql, args.date_field or "created", args.start_date, args.end_date) or base_jql
@@ -138,7 +138,7 @@ def main():
         if not issues:
             break
         # Filter out issues with unwanted resolutions
-        excluded_resolutions = {"Won't Fix", "Duplicate"}
+        excluded_resolutions = {"Won't Fix", "Duplicate", "Not A Problem", "Not A Bug", "Won't Do", "Invalid", "Delivered", "Abandoned", "Information Provided", "Incomplete"}
         filtered_count = 0
         normalized_issues = []
         for it in issues:
@@ -154,7 +154,7 @@ def main():
         normalized_batch = normalized_issues
         for it in normalized_batch:
             key = it.get("key")
-            logger.info("Storing issue: %s", key)
+            logger.debug("Storing issue: %s", key)
             store_result(str(key), it)
             total_to_store += 1
         if total_to_store and total_to_store % 50 == 0:
