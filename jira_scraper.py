@@ -138,7 +138,7 @@ def main():
         if not issues:
             break
         # Filter out issues with unwanted resolutions
-        excluded_resolutions = {"Won't Fix", "Duplicate", "Not A Problem"}
+        excluded_resolutions = {"Won't Fix", "Duplicate", "Not A Problem", "Not A Bug"}
         filtered_count = 0
         normalized_issues = []
         for it in issues:
