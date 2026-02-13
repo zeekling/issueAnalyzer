@@ -137,8 +137,21 @@ def main():
         issues = resp["issues"] if isinstance(resp, dict) else []
         if not issues:
             break
+        # Filter out issues with unwanted resolutions
+        excluded_resolutions = {"Won't Fix", "Duplicate"}
+        filtered_count = 0
+        normalized_issues = []
+        for it in issues:
+            resolution = it.get("fields", {}).get("resolution", {}).get("name") if isinstance(it.get("fields"), dict) else None
+            if resolution in excluded_resolutions:
+                filtered_count += 1
+                logger.debug("Skipping issue %s with resolution '%s'", it.get("key"), resolution)
+            else:
+                normalized_issues.append(normalize_issue(it))
+        if filtered_count > 0:
+            logger.info("Filtered out %d issue(s) with resolution in %s", filtered_count, excluded_resolutions)
         # Process issues incrementally: normalize and upsert into DB
-        normalized_batch = [normalize_issue(it) for it in issues]
+        normalized_batch = normalized_issues
         for it in normalized_batch:
             key = it.get("key")
             logger.info("Storing issue: %s", key)
