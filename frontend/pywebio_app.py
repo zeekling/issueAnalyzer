@@ -100,7 +100,7 @@ def render_issue_html(issue: Dict[str, Any]) -> str:
 
     html = f"""
     <h2>Issue {issueid}: {summary}</h2>
-    <p>{description}</p>
+    <p><b>Description:</b><br>{description or 'No description provided'}</p>
     <table border=1 cellpadding=4>
       <tr><td>Project</td><td>{project_name or ''}</td></tr>
       <tr><td>Status</td><td>{status}</td></tr>
@@ -199,7 +199,7 @@ def pywebio_ui():
         if not issues:
             put_text("No issues found or API unreachable.")
             break
-        header = ["issueid", "project_name", "summary", "status", "issuetype", "fixVersions", "labels", "resolution", "created", "updated", "Operate"]
+        header = ["issueid", "project_name", "summary", "status", "issuetype", "fixVersions", "labels", "resolution", "created", "updated", "Description", "Operate"]
         rows = []
         for it in issues:
             iid = it.get("issueid", "")
@@ -217,7 +217,10 @@ def pywebio_ui():
             created = _format_date(it.get("created", ""))
             updated = _format_date(it.get("updated", ""))
             markdetail = it.get("markdetail", "")
-            rows.append([iid, project_name, summary, status, issuetype, fixVersions, labels, resolution, created, updated, put_buttons(['Mark Important' if not markdetail else 'Clear'], onclick=lambda value, iid=iid: clear_issue_important(iid) if value == 'Clear' else mark_issue_important(iid, "Important"))])
+            description = it.get("description", "")
+            # Limit description display to 100 characters
+            description_display = (description[:100] + "...") if description and len(description) > 100 else description
+            rows.append([iid, project_name, summary, status, issuetype, fixVersions, labels, resolution, created, updated, description_display, put_buttons(['Mark Important' if not markdetail else 'Clear'], onclick=lambda value, iid=iid: clear_issue_important(iid) if value == 'Clear' else mark_issue_important(iid, "Important"))])
         put_html(PAGINATION_CSS)
         put_table(rows, header=header)
         total_pages = max(1, (total + page_size - 1) // page_size)

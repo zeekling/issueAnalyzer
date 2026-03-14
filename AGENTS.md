@@ -1,18 +1,18 @@
-# AGENTS 指南
+# AGENTS 开发规范指南
 
-Issue Analyzer Python 开发规范指南
+Issue Analyzer Jira Issue 抓取系统开发规范
 
 ## 项目概述
 
 Jira Issue 抓取系统，提供 SQLite 存储、REST API 和 PyWebIO UI。核心文件：
-- `jira_scraper.py` - Jira 数据抓取
-- `db_writer.py` - SQLite 数据库操作
+- `jira_scraper.py` - Jira 数据抓取（支持多项目、resolution 过滤）
+- `db_writer.py` - SQLite 数据库操作（threading.Lock 并发保护）
 - `api.py` - Flask REST API
 - `frontend/pywebio_app.py` - PyWebIO 前端
 
 ## 0) 自动修改策略
 
-- 明确授权范围内修改文件无需单独确认
+- 明确授权范围内修改无需单独确认
 - 敏感信息或架构变更提交前自检说明原因
 
 ## 1) 构建/Lint/测试命令
@@ -24,18 +24,6 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate
 # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-**依赖列表** (requirements.txt)
-```
-drf-yasg>=1.20.0
-psycopg2-binary>=2.9
-Pillow>=9.0.0
-Whitenoise>=6.0
-gunicorn>=20.0
-requests>=2.28.1
-Flask>=2.0
-pywebio
 ```
 
 **代码质量**
@@ -52,11 +40,17 @@ ruff check --fix .
 mypy .
 ```
 
-**测试框架**
-- pytest（未配置，需先创建测试文件）
-- 单文件测试：`pytest tests/test_module.py -q`
-- 单个测试：`pytest tests/test_module.py::TestClass::test_method -q`
-- 完整测试：`pytest -q`
+**测试框架** (pytest 未配置，需创建测试文件)
+```bash
+# 单文件测试
+pytest tests/test_module.py -q
+
+# 单个测试
+pytest tests/test_module.py::TestClass::test_method -q
+
+# 完整测试
+pytest -q
+```
 
 ## 2) 代码风格
 
@@ -106,7 +100,33 @@ logger.error("Failed to connect to database")
 - SQLite 并发使用 `threading.Lock` 保护
 - API 返回标准 JSON，状态码正确（404/500 等）
 
-## 3) Git 工作流
+## 3) 项目特定约定
+
+**Jira Scraper**
+- 多项目抓取：使用 `--project` 接受多个值，默认 HDFS,YARN,HADOOP,MAPREDUCE,ZOOKEEPER
+- Resolution 过滤：跳过以下 resolution：Won't Fix, Duplicate, Not A Problem, Not A Bug, Won't Do, Invalid, Delivered, Abandoned, Information Provided, Incomplete
+- JQL 构建：时间范围使用 `_build_time_jql()`，使用 `_date_literal()` 处理日期字面量
+
+**数据库字段映射**（issues 表）
+- issueid, project_name, summary, description, status
+- assignee_name, assignee_email, created, updated
+- issuetype, labels, priority, resolution, fixVersions, markdetail
+
+**API 端点模式**
+```python
+@app.route('/endpoint', methods=['GET'])
+def endpoint_name():
+    # 路由函数保持简洁
+    # 复杂逻辑抽离到服务层函数
+```
+
+**前端约定**（PyWebIO）
+- 使用 `put_table` 显示列表
+- 使用 `put_html` 显示详细信息
+- 按钮使用 `put_buttons` 配合 onclick 回调
+- 分页参数：limit, offset
+
+## 4) Git 工作流
 
 **分支管理**
 - 禁止直接推送到 main/master
@@ -124,7 +144,7 @@ git status          # 查看未跟踪文件
 git diff            # 查看变更内容
 ```
 
-## 4) 开发流程
+## 5) 开发流程
 
 **数据库变更**
 - 涉及表结构修改时添加迁移脚本
@@ -144,7 +164,7 @@ git diff            # 查看变更内容
 - SQL 查询参数化，禁止字符串拼接
 - 不在日志中记录敏感信息
 
-## 5) 检查清单
+## 6) 检查清单
 
 开发前检查：
 - [ ] 理解现有代码结构和约定
