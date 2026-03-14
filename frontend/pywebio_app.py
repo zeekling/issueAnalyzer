@@ -199,7 +199,7 @@ def pywebio_ui():
         if not issues:
             put_text("No issues found or API unreachable.")
             break
-        header = ["issueid", "project_name", "summary", "status", "issuetype", "fixVersions", "labels", "resolution", "created", "updated", "Operate", "Description"]
+        header = ["issueid", "project_name", "summary", "status", "issuetype", "fixVersions", "labels", "resolution", "created", "updated", "Description", "Operate"]
         rows = []
         for it in issues:
             iid = it.get("issueid", "")
