@@ -11,6 +11,25 @@ from typing import Any, Optional, List, Dict
 DB_PATH: str = os.environ.get("RESULTS_DB_PATH", "data/result.db")
 _lock = threading.Lock()
 
+def _row_to_issue(row: tuple) -> Dict[str, Any]:
+    """将数据库行转换为 issue 字典"""
+    return {
+        "issueid": row[0],
+        "project_name": row[1],
+        "summary": row[2],
+        "description": row[3],
+        "status": row[4],
+        "assignee": {"name": row[5], "email": row[6]},
+        "created": row[7],
+        "updated": row[8],
+        "issuetype": row[9],
+        "labels": json.loads(row[10]) if row[10] else [],
+        "priority": row[11],
+        "resolution": row[12],
+        "fixVersions": json.loads(row[13]) if row[13] else [],
+        "markdetail": row[14],
+    }
+
 def init_db(db_path: Optional[str] = None) -> None:
     global DB_PATH
     if db_path:
@@ -40,6 +59,10 @@ def init_db(db_path: Optional[str] = None) -> None:
             )
             """
         )
+        conn.execute("PRAGMA journal_mode=WAL")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_project_name ON issues(project_name)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_status ON issues(status)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_created ON issues(created)")
         conn.commit()
 
 def store_result(input_id: str, data: Any) -> None:
@@ -96,43 +119,62 @@ def store_result(input_id: str, data: Any) -> None:
         )
         conn.commit()
 
+def store_results_batch(data_list: List[Dict[str, Any]]) -> int:
+    """批量写入多个 issue，返回写入数量"""
+    if not data_list:
+        return 0
+    with _lock, sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        records = []
+        for data in data_list:
+            issueid = data.get("key")
+            summary = data.get("summary")
+            description = data.get("description")
+            status = data.get("status")
+            assignee = data.get("assignee", {})
+            assignee_name = assignee.get("name") if isinstance(assignee, dict) else None
+            assignee_email = assignee.get("email") if isinstance(assignee, dict) else None
+            project_name = data.get("project_name")
+            created = data.get("created")
+            updated = data.get("updated")
+            issuetype = data.get("issuetype")
+            labels = data.get("labels") or []
+            priority = data.get("priority")
+            resolution = data.get("resolution")
+            fixVersions = data.get("fixVersions") or []
+            records.append((
+                issueid, project_name, summary, description, status,
+                assignee_name, assignee_email, created, updated, issuetype,
+                json.dumps(labels, ensure_ascii=False), priority, resolution,
+                json.dumps(fixVersions, ensure_ascii=False), ''
+            ))
+        c.executemany(
+            """INSERT OR REPLACE INTO issues (
+                issueid, project_name, summary, description, status,
+                assignee_name, assignee_email, created, updated, issuetype,
+                labels, priority, resolution, fixVersions, markdetail
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            records
+        )
+        conn.commit()
+        return len(records)
+
 def query_results(limit: int = 100) -> List[Dict[str, Any]]:
     """ Query recent issues; returns a list of dicts with separate fields. """
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
         cur.execute(
-            """
-            SELECT
+            """SELECT
                 issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
                 labels, priority, resolution, fixVersions, markdetail
             FROM issues
             ORDER BY created DESC
-            LIMIT ?
-            """,
+            LIMIT ?""",
             (limit,),
         )
         rows = cur.fetchall()
-        results = []
-    for r in rows:
-        results.append({
-            "issueid": r[0],
-            "project_name": r[1],
-            "summary": r[2],
-            "description": r[3],
-            "status": r[4],
-            "assignee_name": r[5],
-            "assignee_email": r[6],
-            "created": r[7],
-            "updated": r[8],
-            "issuetype": r[9],
-            "labels": json.loads(r[10]),
-            "priority": r[11],
-            "resolution": r[12],
-            "fixVersions": json.loads(r[13]),
-            "markdetail": r[14],
-        })
-    return results
+    return [_row_to_issue(r) for r in rows]
 
 def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]:
     """Return paginated results: total and list of issues for the current page."""
@@ -151,31 +193,11 @@ def query_results_paginated(limit: int = 100, offset: int = 0) -> Dict[str, Any]
                 labels, priority, resolution, fixVersions, markdetail
             FROM issues
             ORDER BY created DESC
-            LIMIT ? OFFSET ?
-            """,
+            LIMIT ? OFFSET ?""",
             (limit, offset),
         )
         rows = cur.fetchall()
-    issues = []
-    for r in rows:
-        issues.append({
-            "issueid": r[0],
-            "project_name": r[1],
-            "summary": r[2],
-            "description": r[3],
-            "status": r[4],
-            "assignee_name": r[5],
-            "assignee_email": r[6],
-            "created": r[7],
-            "updated": r[8],
-            "issuetype": r[9],
-            "labels": json.loads(r[10]),
-            "priority": r[11],
-            "resolution": r[12],
-            "fixVersions": json.loads(r[13]),
-            "markdetail": r[14],
-        })
-    return {"total": total, "issues": issues}
+    return {"total": total, "issues": [_row_to_issue(r) for r in rows]}
 
 def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: Optional[str] = None, value: Optional[str] = None) -> Dict[str, Any]:
     """Return paginated results with simple field-based filtering.
@@ -183,12 +205,16 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
     Supports filtering by a subset of fields using LIKE semantics.
     For labels/fixVersions stored as JSON arrays, performs a contains-style match.
     """
+    VALID_FIELDS = {'issueid', 'project_name', 'summary', 'description', 'status',
+                    'assignee_name', 'issuetype', 'labels', 'priority', 'resolution',
+                    'fixVersions', 'created', 'updated'}
+    if field and field not in VALID_FIELDS:
+        field = None
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
         total = 0
         issues: List[Dict[str, Any]] = []
         if field:
-            # Map user-provided field to DB column
             field_map = {
                 'issueid': 'issueid',
                 'project_name': 'project_name',
@@ -207,57 +233,32 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
             }
             column = field_map.get(field)
             if column:
-                # Build LIKE pattern
                 if column in ('labels', 'fixVersions'):
                     pattern = f'%"{value}"%'
                 else:
                     pattern = f'%{value}%' if value is not None else ''
                 if value is None:
-                    # No value to filter on; fall back to unfiltered paging
                     column = None
                 else:
-                    # Count total with filter
                     cur.execute(
                         f"SELECT COUNT(*) FROM issues WHERE {column} LIKE ?",
                         (pattern,),
                     )
                     total_row = cur.fetchone()
                     total = total_row[0] if total_row else 0
-                    # Fetch page with filter
-                    sql = f"""
-                    SELECT
+                    sql = f"""SELECT
                         issueid, project_name, summary, description, status,
                         assignee_name, assignee_email, created, updated, issuetype,
                         labels, priority, resolution, fixVersions, markdetail
                     FROM issues
                     WHERE {column} LIKE ?
                     ORDER BY created DESC
-                    LIMIT ? OFFSET ?
-                    """
+                    LIMIT ? OFFSET ?"""
                     cur.execute(sql, (pattern, limit, offset))
                     rows = cur.fetchall()
-                    for r in rows:
-                        issues.append({
-                                'issueid': r[0],
-                                'project_name': r[1],
-                                'summary': r[2],
-                                'description': r[3],
-                                'status': r[4],
-                                'assignee': {'name': r[5], 'email': r[6]},
-                                'created': r[7],
-                                'updated': r[8],
-                                'issuetype': r[9],
-                                'labels': json.loads(r[10]),
-                                'priority': r[11],
-                                'resolution': r[12],
-                                'fixVersions': json.loads(r[13]),
-                                'markdetail': r[14],
-                            })
-        # If there was no valid filter, fallback to unfiltered paging
+                    issues = [_row_to_issue(r) for r in rows]
         if not field or not issues:
-            # Fall back to unfiltered paging
             return query_results_paginated(limit=limit, offset=offset)
-        # Build total value already computed above; ensure non-negative
         total = total if isinstance(total, int) else 0
         return {"total": total, "issues": issues}
 
@@ -265,36 +266,38 @@ def get_issue_by_id(issueid: str) -> Optional[Dict[str, Any]]:
     """Fetch a single issue by its issueid."""
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT
-            issueid, project_name, summary, description, status,
-            assignee_name, assignee_email, created, updated, issuetype,
-            labels, priority, resolution, fixVersions, markdetail
-        FROM issues
-        WHERE issueid = ?
-        """,
-        (issueid,),
-    )
-    row = cur.fetchone()
+        cur.execute(
+            """SELECT
+                issueid, project_name, summary, description, status,
+                assignee_name, assignee_email, created, updated, issuetype,
+                labels, priority, resolution, fixVersions, markdetail
+            FROM issues
+            WHERE issueid = ?""",
+            (issueid,),
+        )
+        row = cur.fetchone()
     if not row:
         return None
-    return {
-        "issueid": row[0],
-        "project_name": row[1],
-        "summary": row[2],
-        "description": row[3],
-        "status": row[4],
-        "assignee": {"name": row[5], "email": row[6]},
-        "created": row[7],
-        "updated": row[8],
-        "issuetype": row[9],
-        "labels": json.loads(row[10]),
-        "priority": row[11],
-        "resolution": row[12],
-        "fixVersions": json.loads(row[13]),
-        "markdetail": row[14],
-    }
+    return _row_to_issue(row)
+
+def get_marked_issues(limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+    """获取所有已标记的 issues"""
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM issues WHERE markdetail IS NOT NULL AND markdetail != ''")
+        total = cur.fetchone()[0] or 0
+        cur.execute(
+            """SELECT issueid, project_name, summary, description, status,
+               assignee_name, assignee_email, created, updated, issuetype,
+               labels, priority, resolution, fixVersions, markdetail
+            FROM issues
+            WHERE markdetail IS NOT NULL AND markdetail != ''
+            ORDER BY updated DESC
+            LIMIT ? OFFSET ?""",
+            (limit, offset),
+        )
+        rows = cur.fetchall()
+    return {"total": total, "issues": [_row_to_issue(r) for r in rows]}
 
 def update_issue_markdetail_field(issueid: str, markdetail: str) -> bool:
     """Update the markdetail field for an issue."""

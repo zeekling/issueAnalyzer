@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ issue.issueid }} - Issue Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">问题列表</a></li>
+                <li class="breadcrumb-item active">{{ issue.issueid }}</li>
+            </ol>
+        </nav>
+
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">{{ issue.issueid }}: {{ issue.summary }}</h4>
+                <form method="post" action="/issue/{{ issue.issueid }}/toggle" class="d-inline">
+                    <button type="submit" class="btn btn-{{ 'warning' if issue.markdetail else 'outline-warning' }}">
+                        {{ '取消标记' if issue.markdetail else '标记重要' }}
+                    </button>
+                </form>
+            </div>
+            <div class="card-body">
+                {% if issue.description %}
+                <div class="mb-3">
+                    <h5>描述</h5>
+                    <p class="text-break">{{ issue.description }}</p>
+                </div>
+                {% endif %}
+
+                <table class="table table-bordered">
+                    <tr>
+                        <th style="width: 150px;">Project</th>
+                        <td>{{ issue.project_name or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status</th>
+                        <td><span class="badge bg-{{ 'success' if issue.status == 'Closed' else 'primary' }}">{{ issue.status or 'N/A' }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Assignee</th>
+                        <td>{{ issue.assignee.name|default('Unassigned') }}
+                            {% if issue.assignee.email %}({{ issue.assignee.email }}){% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Type</th>
+                        <td>{{ issue.issuetype or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Priority</th>
+                        <td>{{ issue.priority or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Resolution</th>
+                        <td>{{ issue.resolution or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Created</th>
+                        <td>{{ issue.created or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Updated</th>
+                        <td>{{ issue.updated or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Fix Versions</th>
+                        <td>{{ issue.fixVersions|join(', ') if issue.fixVersions else 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Labels</th>
+                        <td>
+                            {% if issue.labels %}
+                            {% for label in issue.labels %}
+                            <span class="badge bg-secondary me-1">{{ label }}</span>
+                            {% endfor %}
+                            {% else %}N/A{% endif %}
+                        </td>
+                    </tr>
+                </table>
+
+                {% if issue.markdetail %}
+                <div class="alert alert-warning">
+                    <strong>标记:</strong> {{ issue.markdetail }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <a href="/" class="btn btn-secondary">返回列表</a>
+    </div>
+</div>
+{% endblock %}
