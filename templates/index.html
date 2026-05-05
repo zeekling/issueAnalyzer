@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}问题列表 - Issue Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-3">问题列表</h2>
+
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <a class="nav-link {% if not project and not show_marked %}active{% endif %}" href="/?project=">全部</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if show_marked %}active{% endif %}" href="/marked">已标记</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if project == 'HDFS' %}active{% endif %}" href="/?project=HDFS">HDFS</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if project == 'YARN' %}active{% endif %}" href="/?project=YARN">YARN</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if project == 'HADOOP' %}active{% endif %}" href="/?project=HADOOP">HADOOP</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if project == 'MAPREDUCE' %}active{% endif %}" href="/?project=MAPREDUCE">MAPREDUCE</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if project == 'ZOOKEEPER' %}active{% endif %}" href="/?project=ZOOKEEPER">ZOOKEEPER</a>
+            </li>
+        </ul>
+
+        <form method="get" class="row g-3 mb-4">
+            {% if project %}
+            <input type="hidden" name="project" value="{{ project }}">
+            {% endif %}
+            <div class="col-md-3">
+                <select name="field" class="form-select">
+                    <option value="">筛选字段</option>
+                    <option value="issueid" {% if field == 'issueid' %}selected{% endif %}>Issue ID</option>
+                    <option value="project_name" {% if field == 'project_name' %}selected{% endif %}>Project</option>
+                    <option value="summary" {% if field == 'summary' %}selected{% endif %}>Summary</option>
+                    <option value="status" {% if field == 'status' %}selected{% endif %}>Status</option>
+                    <option value="assignee_name" {% if field == 'assignee_name' %}selected{% endif %}>Assignee</option>
+                    <option value="issuetype" {% if field == 'issuetype' %}selected{% endif %}>Type</option>
+                    <option value="priority" {% if field == 'priority' %}selected{% endif %}>Priority</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <input type="text" name="value" class="form-control" placeholder="搜索值" value="{{ value or '' }}">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">搜索</button>
+            </div>
+        </form>
+
+        {% if filter_display %}
+        <div class="alert alert-info">
+            当前筛选: {{ filter_display }}
+            <a href="/" class="btn btn-sm btn-outline-secondary ms-2">清除筛选</a>
+        </div>
+        {% endif %}
+
+        {% for issue in issues %}
+        <div class="card issue-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="issue-title">
+                            <a href="/issue/{{ issue.issueid }}">{{ issue.issueid }}</a>
+                            {% if issue.markdetail %}<span class="badge bg-warning">重要</span>{% endif %}
+                        </h5>
+                        <p class="mb-1">{{ issue.summary }}</p>
+                    </div>
+                    <div>
+                        <span class="badge bg-{{ 'success' if issue.status == 'Closed' else 'primary' }}">{{ issue.status or 'N/A' }}</span>
+                    </div>
+                </div>
+                <div class="issue-meta mt-2">
+                    <span class="me-3">项目: {{ issue.project_name or 'N/A' }}</span>
+                    <span class="me-3">类型: {{ issue.issuetype or 'N/A' }}</span>
+                    <span class="me-3">优先级: {{ issue.priority or 'N/A' }}</span>
+                    <span class="me-3">创建: {{ issue.created[:10] if issue.created else '' }}</span>
+                    <span class="me-3">更新: {{ issue.updated[:10] if issue.updated else '' }}</span>
+                </div>
+                <div class="mt-2">
+                    {% if issue.labels %}
+                    {% for label in issue.labels[:5] %}
+                    <span class="badge bg-secondary me-1">{{ label }}</span>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-warning">未找到问题记录</div>
+        {% endfor %}
+
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if page > 1 %}
+                <li class="page-item"><a class="page-link" href="{% if show_marked %}/marked?page={{ page-1 }}{% else %}?page={{ page-1 }}{% if project %}&project={{ project }}{% endif %}{% if field %}&field={{ field }}{% endif %}{% if value %}&value={{ value }}{% endif %}{% endif %}">上一页</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">第 {{ page }} / {{ total_pages }} 页 (共 {{ total }} 条)</span></li>
+                {% if page < total_pages %}
+                <li class="page-item"><a class="page-link" href="{% if show_marked %}/marked?page={{ page+1 }}{% else %}?page={{ page+1 }}{% if project %}&project={{ project }}{% endif %}{% if field %}&field={{ field }}{% endif %}{% if value %}&value={{ value }}{% endif %}{% endif %}">下一页</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endblock %}

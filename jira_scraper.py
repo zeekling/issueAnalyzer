@@ -6,6 +6,7 @@ import json
 from typing import List, Dict, Any, Optional
 import requests
 from db_writer import init_db, store_result
+from config import MAX_RETRIES, RETRY_DELAY, REQUEST_INTERVAL, EXCLUDED_RESOLUTIONS
 
 DEFAULT_JIRA_BASE: str = "https://issues.apache.org/jira"
 logger = logging.getLogger(__name__)
@@ -29,8 +30,8 @@ def _build_time_jql(base_jql: str, field: str, start_date: Optional[str], end_da
     clause = " AND ".join(parts)
     return f"{base_jql} AND {clause}"
 
-def fetch_issues(jql: str, max_results: int = 1000, start_at: int = 0, auth: Any = None) -> Dict[str, Any]:
-    """Fetch Jira issues using JQL and return raw data."""
+def fetch_issues(jql: str, max_results: int = 1000, start_at: int = 0, auth: Any = None, max_retries: int = 10) -> Dict[str, Any]:
+    """Fetch Jira issues using JQL and return raw data. Includes retry logic for connection errors."""
     url = f"{DEFAULT_JIRA_BASE.rstrip('/')}/rest/api/2/search"
     params = {
         "jql": jql,
@@ -38,23 +39,36 @@ def fetch_issues(jql: str, max_results: int = 1000, start_at: int = 0, auth: Any
         "maxResults": max_results,
         "fields": "key,summary,description,status,assignee,created,updated,issuetype,labels,priority,resolution,fixVersions,project",
     }
-    try:
-        resp = requests.get(url, params=params, auth=auth, timeout=60)
-        resp.raise_for_status()
-        data = resp.json()
-        total = int(data.get("total", 0))
-        issues = data.get("issues", [])
-        logger.info("Fetched batch: %d issues (start_at=%d, max_results=%d) total=%d for JQL=%s", len(issues), start_at, max_results, total, jql)
-        if issues:
-            keys_preview = [iss.get("key") for iss in issues[:5]]
-            preview = ", ".join(k for k in keys_preview if k)
-            if len(issues) > 5:
-                preview += ", ..."
-            logger.debug("Batch issue keys: %s", preview)
-        return {"total": total, "issues": issues}
-    except Exception as e:
-        logger.exception("Failed to fetch issues for JQL '%s' (start_at=%d, max_results=%d): %s", jql, start_at, max_results, e)
-        raise
+    last_exception = None
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, params=params, auth=auth, timeout=60)
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get("Retry-After", RETRY_DELAY))
+                logger.warning("Rate limited (429). Waiting %d seconds (Retry-After)", retry_after)
+                time.sleep(retry_after)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            total = int(data.get("total", 0))
+            issues = data.get("issues", [])
+            logger.info("Fetched batch: %d issues (start_at=%d, max_results=%d) total=%d for JQL=%s", len(issues), start_at, max_results, total, jql)
+            if issues:
+                keys_preview = [iss.get("key") for iss in issues[:5]]
+                preview = ", ".join(k for k in keys_preview if k)
+                if len(issues) > 5:
+                    preview += ", ..."
+                logger.debug("Batch issue keys: %s", preview)
+            return {"total": total, "issues": issues}
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            last_exception = e
+            logger.warning("Connection error (attempt %d/%d): %s. Retrying...", attempt + 1, max_retries, e)
+            time.sleep(RETRY_DELAY)
+        except Exception as e:
+            logger.exception("Failed to fetch issues for JQL '%s' (start_at=%d, max_results=%d): %s", jql, start_at, max_results, e)
+            raise
+    logger.error("Max retries exceeded for JQL '%s' (start_at=%d)", jql, start_at)
+    raise last_exception
 
 def _extract_description_text(desc: Any) -> str:
     if isinstance(desc, str):
@@ -108,7 +122,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fetch Jira issues from Apache Jira.")
     parser.add_argument("--project", nargs="+", default=["HDFS", "YARN", "HADOOP", "MAPREDUCE", "ZOOKEEPER"], help="Jira project keys (comma-separated or multiple values)")
     parser.add_argument("--jql", default=None, help="Custom JQL, overrides --project if provided")
-    parser.add_argument("--start-date", default="2017-01-01", help="Start date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
+    parser.add_argument("--start-date", default="2015-01-01", help="Start date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
     parser.add_argument("--end-date", default=None, help="End date for time-bounded fetch (inclusive), format: YYYY-MM-DD")
     parser.add_argument("--date-field", default="created", help="Date field to filter on (e.g., created, updated)")
     parser.add_argument("--max-results", type=int, default=1000, help="Pagination size per request")
@@ -160,7 +174,7 @@ def main():
         if total_to_store and total_to_store % 50 == 0:
             logger.info("Stored %d issues so far", total_to_store)
         start_at += len(issues)
-        time.sleep(0.25)
+        time.sleep(REQUEST_INTERVAL)
 
 if __name__ == "__main__":
     main()
