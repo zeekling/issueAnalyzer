@@ -5,7 +5,7 @@ import json
 import os
 import sqlite3
 import threading
-from typing import Any, Optional, List, Dict
+from typing import Any, Dict, List, Optional
 
 # Default database path, can be overridden via env VAR 'RESULTS_DB_PATH'
 DB_PATH: str = os.environ.get("RESULTS_DB_PATH", "data/result.db")

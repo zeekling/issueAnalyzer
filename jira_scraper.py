@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-import logging
 import argparse
+import logging
 import time
-import json
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import requests
+
+from config import REQUEST_INTERVAL, RETRY_DELAY
 from db_writer import init_db, store_result
-from config import MAX_RETRIES, RETRY_DELAY, REQUEST_INTERVAL, EXCLUDED_RESOLUTIONS
 
 DEFAULT_JIRA_BASE: str = "https://issues.apache.org/jira"
 logger = logging.getLogger(__name__)
