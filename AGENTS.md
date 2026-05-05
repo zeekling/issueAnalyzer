@@ -91,3 +91,11 @@ issues 表：issueid, project_name, summary, description, status, assignee_name,
 
 - 默认使用 **Subagent-Driven** 方式执行计划（每个任务派遣独立子任务，分阶段审查）
 - 只有简单任务（单文件修改、10分钟以内可完成）可使用 Inline Execution
+
+## 分支保护规则
+
+**禁止直接 push 到 main/master 分支**
+- 所有更改必须通过 Pull Request 合并
+- 创建功能分支：`git checkout -b feature/xxx` 或 `git checkout -b fix/xxx`
+- 提交后推送分支：`git push -u origin branch-name`
+- 通过 PR 合并到 main
