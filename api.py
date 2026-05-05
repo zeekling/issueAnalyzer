@@ -6,10 +6,18 @@ Endpoints:
 - GET /issues          : list recent issues (read with limit param)
 """
 import logging
-from flask import Flask, jsonify, request, render_template, redirect
-from db_writer import get_issue_by_id, query_results, query_results_paginated, query_results_paginated_filtered, update_issue_markdetail_field, get_marked_issues
-from config import DEFAULT_LIMIT, MAX_LIMIT, CACHE_TTL
+
+from flask import Flask, jsonify, redirect, render_template, request
+
 from cache import cache
+from config import CACHE_TTL, DEFAULT_LIMIT, MAX_LIMIT
+from db_writer import (
+    get_issue_by_id,
+    get_marked_issues,
+    query_results_paginated,
+    query_results_paginated_filtered,
+    update_issue_markdetail_field,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

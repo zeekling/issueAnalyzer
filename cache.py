@@ -1,7 +1,8 @@
 """简单内存缓存模块"""
 import time
-from typing import Any, Dict, Optional
 from threading import Lock
+from typing import Any, Dict, Optional
+
 
 class SimpleCache:
     def __init__(self, default_ttl: int = 60):

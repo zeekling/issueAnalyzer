@@ -5,7 +5,7 @@ import json
 import os
 import sqlite3
 import threading
-from typing import Any, Optional, List, Dict
+from typing import Any, Dict, List, Optional
 
 # Default database path, can be overridden via env VAR 'RESULTS_DB_PATH'
 DB_PATH: str = os.environ.get("RESULTS_DB_PATH", "data/result.db")
@@ -83,7 +83,7 @@ def store_result(input_id: str, data: Any) -> None:
         labels = []
         priority = None
         resolution = None
-        fixVersions = []
+        fix_versions = []
         if isinstance(data, dict):
             issueid = data.get("key")
             summary = data.get("summary")
@@ -100,9 +100,9 @@ def store_result(input_id: str, data: Any) -> None:
         labels = data.get("labels") or []
         priority = data.get("priority")
         resolution = data.get("resolution")
-        fixVersions = data.get("fixVersions") or []
+        fix_versions = data.get("fixVersions") or []
         labels_json = json.dumps(labels, ensure_ascii=False)
-        fixVersions_json = json.dumps(fixVersions, ensure_ascii=False)
+        fix_versions_json = json.dumps(fix_versions, ensure_ascii=False)
         c.execute(
             """
             INSERT OR REPLACE INTO issues (
@@ -114,7 +114,7 @@ def store_result(input_id: str, data: Any) -> None:
             (
                 issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
-                labels_json, priority, resolution, fixVersions_json, ''
+                labels_json, priority, resolution, fix_versions_json, ''
             ),
         )
         conn.commit()
@@ -141,12 +141,12 @@ def store_results_batch(data_list: List[Dict[str, Any]]) -> int:
             labels = data.get("labels") or []
             priority = data.get("priority")
             resolution = data.get("resolution")
-            fixVersions = data.get("fixVersions") or []
+            fix_versions = data.get("fixVersions") or []
             records.append((
                 issueid, project_name, summary, description, status,
                 assignee_name, assignee_email, created, updated, issuetype,
                 json.dumps(labels, ensure_ascii=False), priority, resolution,
-                json.dumps(fixVersions, ensure_ascii=False), ''
+                json.dumps(fix_versions, ensure_ascii=False), ''
             ))
         c.executemany(
             """INSERT OR REPLACE INTO issues (
@@ -205,10 +205,10 @@ def query_results_paginated_filtered(limit: int = 100, offset: int = 0, field: O
     Supports filtering by a subset of fields using LIKE semantics.
     For labels/fixVersions stored as JSON arrays, performs a contains-style match.
     """
-    VALID_FIELDS = {'issueid', 'project_name', 'summary', 'description', 'status',
+    valid_fields = {'issueid', 'project_name', 'summary', 'description', 'status',
                     'assignee_name', 'issuetype', 'labels', 'priority', 'resolution',
                     'fixVersions', 'created', 'updated'}
-    if field and field not in VALID_FIELDS:
+    if field and field not in valid_fields:
         field = None
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
