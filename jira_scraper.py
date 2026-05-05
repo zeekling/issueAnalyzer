@@ -98,7 +98,7 @@ def normalize_issue(issue: Dict[str, Any]) -> Dict[str, Any]:
     labels = fields.get("labels", []) or []
     priority = fields.get("priority", {}).get("name") if isinstance(fields.get("priority"), dict) else None
     resolution = fields.get("resolution", {}).get("name") if isinstance(fields.get("resolution"), dict) else None
-    fixVersions = [fv.get("name") for fv in fields.get("fixVersions", []) if isinstance(fv, dict) and fv.get("name")]
+    fix_versions = [fv.get("name") for fv in fields.get("fixVersions", []) if isinstance(fv, dict) and fv.get("name")]
     description_desc = fields.get("description")
     project_info = fields.get("project") if isinstance(fields.get("project"), dict) else {}
     project_name = project_info.get("name") if isinstance(project_info, dict) else None
@@ -116,7 +116,7 @@ def normalize_issue(issue: Dict[str, Any]) -> Dict[str, Any]:
         "labels": labels,
         "priority": priority,
         "resolution": resolution,
-        "fixVersions": fixVersions,
+        "fixVersions": fix_versions,
     }
 
 def main():
